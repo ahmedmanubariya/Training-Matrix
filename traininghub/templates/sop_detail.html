@@ -2,10 +2,27 @@
 {% block content %}
 <div class="title-row">
   <div><h1>{{ sop.reference }} — {{ sop.title }}</h1><p class="muted">{{ 'Active' if sop.active else 'Retired' }} · Revision {{ sop.current_revision or '—' }}</p></div>
-  {% if sop.active and me.access_role == 'admin' %}
-  <form method="post" action="{{ url_for('main.sop_retire', sop_id=sop.id) }}" onsubmit="return confirm('Retire this SOP? Historical signatures will be preserved.')"><button class="danger">Retire SOP</button></form>
-  {% endif %}
+  <div class="inline">
+    {% if sop.active and me.access_role == 'admin' %}
+    <form method="post" action="{{ url_for('main.sop_retire', sop_id=sop.id) }}" onsubmit="return confirm('Retire this SOP? Historical signatures will be preserved.')"><button class="danger">Retire SOP</button></form>
+    {% elif not sop.active and me.access_role == 'admin' %}
+    <form method="post" action="{{ url_for('sop_admin.restore', sop_id=sop.id) }}"><button>Restore SOP</button></form>
+    {% endif %}
+  </div>
 </div>
+
+<div class="panel">
+  <h2>SOP details</h2>
+  <form method="post" class="form-grid" action="{{ url_for('sop_admin.edit', sop_id=sop.id) }}">
+    <label>Title<input name="title" value="{{ sop.title }}" required></label>
+    <label>Category<input name="category" value="{{ sop.category or '' }}"></label>
+    <label>Type<input name="sop_type" value="{{ sop.sop_type or '' }}"></label>
+    <label>Owner<input name="owner" value="{{ sop.owner or '' }}"></label>
+    <label>Validity months<input type="number" min="1" name="validity_months" value="{{ sop.validity_months or '' }}"></label>
+    <button>Save details</button>
+  </form>
+</div>
+
 {% if sop.active %}
 <div class="panel">
   <h2>Upload new revision</h2>
@@ -17,10 +34,12 @@
   <p class="muted">Uploading a revision supersedes the previous active file and resets assigned staff to outstanding.</p>
 </div>
 {% endif %}
+
 <h2>Document versions</h2>
 <table><thead><tr><th>Revision</th><th>File</th><th>Status</th><th>Uploaded</th></tr></thead><tbody>
 {% for v in versions %}<tr><td>{{ v.revision }}</td><td>{{ v.original_name }}</td><td>{{ v.status }}</td><td>{{ v.uploaded_at }}</td></tr>{% endfor %}
 </tbody></table>
+
 {% if sop.active %}
 <h2>Required by job role</h2>
 <div class="panel">
@@ -29,9 +48,14 @@
     <datalist id="role-list">{% for r in roles %}<option value="{{ r }}">{% endfor %}</datalist>
     <button>Add role</button>
   </form>
-  <p>{% for r in reqs %}<span class="status">{{ r.job_role }}</span> {% endfor %}</p>
+  <div class="cards">
+    {% for r in reqs %}
+    <div class="card"><strong style="font-size:16px">{{ r.job_role }}</strong><form method="post" action="{{ url_for('sop_admin.remove_role', sop_id=sop.id) }}"><input type="hidden" name="job_role" value="{{ r.job_role }}"><button class="danger">Remove role</button></form></div>
+    {% endfor %}
+  </div>
 </div>
 {% endif %}
+
 <h2>Assigned staff</h2>
 <table><thead><tr><th>Name</th><th>Department</th><th>Role</th><th>Status</th><th>Completed</th><th>Revision trained</th></tr></thead><tbody>
 {% for a in assigned %}<tr><td>{{ a.name }}</td><td>{{ a.department }}</td><td>{{ a.job_role or '—' }}</td><td><span class="status {{ a.status|lower }}">{{ a.status }}</span></td><td>{{ a.completion_date or '—' }}</td><td>{{ a.revision_completed or '—' }}</td></tr>{% endfor %}
