@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="title-row">
+  <div><h1>{{ employee.name }}</h1><p class="muted">{{ employee.job_role or 'No role' }} · {{ employee.department }} · {{ employee.site }}</p></div>
+  <div class="pie-row"><div class="pie" style="--pct:{{ comp.percentage }}"></div><div><strong class="big">{{ comp.percentage }}%</strong><div>{{ comp.trained }} trained · {{ comp.outstanding }} outstanding</div></div></div>
+</div>
+
+<div class="panel">
+  <h2>Edit staff record</h2>
+  <form method="post" class="form-grid" action="{{ url_for('staff_admin.edit', employee_id=employee.id) }}">
+    <label>Employee number<input name="employee_number" value="{{ employee.employee_number or '' }}"></label>
+    <label>Full name<input name="name" value="{{ employee.name }}" required></label>
+    <label>Email<input type="email" name="email" value="{{ employee.email or '' }}"></label>
+    <label>Site<input name="site" value="{{ employee.site }}"></label>
+    <label>Department<input name="department" value="{{ employee.department }}"></label>
+    <label>Job role<input name="job_role" value="{{ employee.job_role or '' }}"></label>
+    <button>Save changes</button>
+  </form>
+</div>
+
+<div class="title-row"><h2>Assigned training</h2>
+<form method="post" action="{{ url_for('staff_admin.deactivate', employee_id=employee.id) }}" onsubmit="return confirm('Deactivate this staff member and their login? Training history will remain.')"><button class="danger">Deactivate staff</button></form></div>
+<table><thead><tr><th>Reference</th><th>Training</th><th>Revision</th><th>Status</th><th>Completed</th><th>Expiry</th><th>Signed</th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.reference }}</td><td>{{ r.title }}</td><td>{{ r.revision_completed or r.version_revision or r.current_revision or '—' }}</td><td><span class="status {{ r.status|lower }}">{{ r.status }}</span></td><td>{{ r.completion_date or '—' }}</td><td>{{ r.expiry_date or '—' }}</td><td>{{ r.signed_at or '—' }}</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
