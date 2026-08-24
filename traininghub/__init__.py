@@ -5,6 +5,7 @@ from flask import Flask
 from .alerts import bp as alerts_bp
 from .bootstrap import ensure_admin
 from .db import init_app
+from .hooks import bp as hooks_bp
 from .routes import bp
 
 
@@ -24,4 +25,5 @@ def create_app(test_config=None):
         ensure_admin()
     app.register_blueprint(bp)
     app.register_blueprint(alerts_bp)
+    app.register_blueprint(hooks_bp)
     return app
