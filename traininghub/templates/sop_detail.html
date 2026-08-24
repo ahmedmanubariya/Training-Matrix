@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="title-row">
+  <div><h1>{{ sop.reference }} — {{ sop.title }}</h1><p class="muted">{{ 'Active' if sop.active else 'Retired' }} · Revision {{ sop.current_revision or '—' }}</p></div>
+  {% if sop.active and me.access_role == 'admin' %}
+  <form method="post" action="{{ url_for('main.sop_retire', sop_id=sop.id) }}" onsubmit="return confirm('Retire this SOP? Historical signatures will be preserved.')"><button class="danger">Retire SOP</button></form>
+  {% endif %}
+</div>
+{% if sop.active %}
+<div class="panel">
+  <h2>Upload new revision</h2>
+  <form method="post" enctype="multipart/form-data" class="form-grid" action="{{ url_for('main.sop_upload', sop_id=sop.id) }}">
+    <label>Revision<input name="revision" required placeholder="002"></label>
+    <label>Controlled file<input type="file" name="file" accept=".pdf,.txt,.docx,.pptx" required></label>
+    <button>Upload revision</button>
+  </form>
+  <p class="muted">Uploading a revision supersedes the previous active file and resets assigned staff to outstanding.</p>
+</div>
+{% endif %}
+<h2>Document versions</h2>
+<table><thead><tr><th>Revision</th><th>File</th><th>Status</th><th>Uploaded</th></tr></thead><tbody>
+{% for v in versions %}<tr><td>{{ v.revision }}</td><td>{{ v.original_name }}</td><td>{{ v.status }}</td><td>{{ v.uploaded_at }}</td></tr>{% endfor %}
+</tbody></table>
+{% if sop.active %}
+<h2>Required by job role</h2>
+<div class="panel">
+  <form class="inline" method="post" action="{{ url_for('main.sop_add_role', sop_id=sop.id) }}">
+    <input name="job_role" list="role-list" placeholder="Job role" required>
+    <datalist id="role-list">{% for r in roles %}<option value="{{ r }}">{% endfor %}</datalist>
+    <button>Add role</button>
+  </form>
+  <p>{% for r in reqs %}<span class="status">{{ r.job_role }}</span> {% endfor %}</p>
+</div>
+{% endif %}
+<h2>Assigned staff</h2>
+<table><thead><tr><th>Name</th><th>Department</th><th>Role</th><th>Status</th><th>Completed</th><th>Revision trained</th></tr></thead><tbody>
+{% for a in assigned %}<tr><td>{{ a.name }}</td><td>{{ a.department }}</td><td>{{ a.job_role or '—' }}</td><td><span class="status {{ a.status|lower }}">{{ a.status }}</span></td><td>{{ a.completion_date or '—' }}</td><td>{{ a.revision_completed or '—' }}</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
