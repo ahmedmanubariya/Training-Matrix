@@ -1,0 +1,19 @@
+{
+  "name": "TrainingHub Development",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "forwardPorts": [5000],
+  "portsAttributes": {
+    "5000": {
+      "label": "TrainingHub",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postStartCommand": "gunicorn --bind 0.0.0.0:5000 --workers 1 app:app",
+  "remoteEnv": {
+    "SECRET_KEY": "codespace-development-secret",
+    "BOOTSTRAP_ADMIN_PASSWORD": "ChangeMeNow!2026"
+  }
+}
