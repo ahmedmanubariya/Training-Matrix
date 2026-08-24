@@ -13,7 +13,13 @@
     <button>Create login</button>
   </form>
 </div>
-<table><thead><tr><th>Username</th><th>Staff</th><th>Access</th><th>Department</th><th>Last login</th></tr></thead><tbody>
-{% for u in users %}<tr><td>{{ u.username }}</td><td>{{ u.employee_name or '—' }}</td><td>{{ u.access_role }}</td><td>{{ u.department or u.employee_department or '—' }}</td><td>{{ u.last_login_at or 'Never' }}</td></tr>{% endfor %}
+<table><thead><tr><th>Username</th><th>Staff</th><th>Access</th><th>Department</th><th>Last login</th><th>Status</th><th>Password reset</th></tr></thead><tbody>
+{% for u in users %}
+<tr>
+  <td>{{ u.username }}</td><td>{{ u.employee_name or '—' }}</td><td>{{ u.access_role }}</td><td>{{ u.department or u.employee_department or '—' }}</td><td>{{ u.last_login_at or 'Never' }}</td>
+  <td><form method="post" action="{{ url_for('account_admin.toggle_user', user_id=u.id) }}"><button class="{% if u.active %}danger{% endif %}">{{ 'Disable' if u.active else 'Enable' }}</button></form></td>
+  <td><form class="inline" method="post" action="{{ url_for('account_admin.reset_password', user_id=u.id) }}"><input type="password" name="temp_password" minlength="12" placeholder="Temporary password" required><button>Reset</button></form></td>
+</tr>
+{% endfor %}
 </tbody></table>
 {% endblock %}
