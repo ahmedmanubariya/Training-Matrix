@@ -8,6 +8,7 @@ from .bootstrap import ensure_admin
 from .db import init_app
 from .hooks import bp as hooks_bp
 from .routes import bp
+from .sop_admin import bp as sop_admin_bp
 
 
 def create_app(test_config=None):
@@ -27,5 +28,6 @@ def create_app(test_config=None):
     app.register_blueprint(bp)
     app.register_blueprint(alerts_bp)
     app.register_blueprint(account_admin_bp)
+    app.register_blueprint(sop_admin_bp)
     app.register_blueprint(hooks_bp)
     return app
