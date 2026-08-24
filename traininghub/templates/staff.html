@@ -14,6 +14,6 @@
   </form>
 </div>
 <table><thead><tr><th>Name</th><th>Employee no.</th><th>Department</th><th>Role</th><th>Site</th><th>Email</th></tr></thead><tbody>
-{% for e in employees %}<tr><td>{{ e.name }}</td><td>{{ e.employee_number or '—' }}</td><td>{{ e.department }}</td><td>{{ e.job_role or '—' }}</td><td>{{ e.site }}</td><td>{{ e.email or '—' }}</td></tr>{% endfor %}
+{% for e in employees %}<tr><td><a href="{{ url_for('staff_admin.detail', employee_id=e.id) }}">{{ e.name }}</a></td><td>{{ e.employee_number or '—' }}</td><td>{{ e.department }}</td><td>{{ e.job_role or '—' }}</td><td>{{ e.site }}</td><td>{{ e.email or '—' }}</td></tr>{% endfor %}
 </tbody></table>
 {% endblock %}
