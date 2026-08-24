@@ -1,0 +1,22 @@
+name: test
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile app.py
+      - run: |
+          python - <<'PY'
+          from app import app
+          client = app.test_client()
+          response = client.get("/api/health")
+          assert response.status_code == 200
+          assert response.get_json()["status"] == "ok"
+          PY
