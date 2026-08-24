@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="title-row">
+  <div><h1>Training dashboard</h1><p class="muted">Department and staff compliance</p></div>
+  <div class="pie-row"><div class="pie" style="--pct:{{ average }}"></div><div><strong class="big">{{ average }}%</strong><div>Average compliance</div></div></div>
+</div>
+<table>
+<thead><tr><th>Staff member</th><th>Department</th><th>Role</th><th>Compliance</th><th>Trained</th><th>Outstanding</th><th>Alert</th></tr></thead>
+<tbody>
+{% for e in team %}
+<tr>
+  <td>{{ e.name }}</td><td>{{ e.department }}</td><td>{{ e.job_role or '—' }}</td>
+  <td><div class="progress"><span style="width:{{ e.percentage }}%"></span></div>{{ e.percentage }}%</td>
+  <td>{{ e.trained }}</td><td>{{ e.outstanding }}</td>
+  <td>{% if e.percentage < 80 %}<span class="danger-pill">Below 80%</span>{% else %}—{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody></table>
+{% endblock %}
