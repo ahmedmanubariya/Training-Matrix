@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<a href="{{ url_for('main.my_training') }}">← My Training</a>
+<h1>{{ assignment.reference }} — {{ assignment.title }}</h1>
+<p><span class="status {{ assignment.status|lower }}">{{ assignment.status }}</span> · Current revision {{ assignment.current_revision or '—' }}</p>
+<h2>Training material</h2>
+{% if versions %}
+  {% for v in versions %}
+  <div class="material">
+    <div><strong>{{ v.original_name }}</strong><div class="muted">Revision {{ v.revision }} · {{ 'Opened' if v.has_read else 'Not opened' }}</div></div>
+    <a class="button" target="_blank" href="{{ url_for('main.material', version_id=v.id) }}">Open training material</a>
+  </div>
+  {% endfor %}
+  <h2>Electronic acknowledgement</h2>
+  <form class="panel stack narrow" method="post" action="{{ url_for('main.sign_training', sop_id=assignment.sop_id) }}">
+    <label>Revision<select name="version_id">{% for v in versions %}<option value="{{ v.id }}">{{ v.revision }} — {{ v.original_name }}</option>{% endfor %}</select></label>
+    <div class="statement">{{ signature_statement }}</div>
+    <label><input type="checkbox" name="accept" value="yes" required> I accept this acknowledgement.</label>
+    <label>Type your full name<input name="signed_name" required placeholder="{{ me.employee_name }}"></label>
+    <label>Re-enter your password<input type="password" name="password" required autocomplete="current-password"></label>
+    <button>Electronically sign training</button>
+  </form>
+{% else %}
+<div class="warning">No active training material has been uploaded yet.</div>
+{% endif %}
+{% if signatures %}
+<h2>Training history</h2>
+<table><thead><tr><th>Date/time</th><th>Revision</th><th>Document</th><th>Signed name</th></tr></thead><tbody>
+{% for s in signatures %}<tr><td>{{ s.signed_at }}</td><td>{{ s.revision }}</td><td>{{ s.original_name }}</td><td>{{ s.signed_name }}</td></tr>{% endfor %}
+</tbody></table>
+{% endif %}
+{% endblock %}
