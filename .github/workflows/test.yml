@@ -13,25 +13,5 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: python -m py_compile app.py traininghub/*.py
-      - run: |
-          python - <<'PY'
-          import tempfile
-          from traininghub import create_app
-
-          app = create_app({
-              'TESTING': True,
-              'DATABASE': 'test-traininghub.db',
-              'SECRET_KEY': 'test-secret',
-          })
-          client = app.test_client()
-          response = client.get('/login')
-          assert response.status_code == 200
-          assert b'TrainingHub' in response.data
-
-          with app.app_context():
-              from traininghub.db import get_db
-              db = get_db()
-              assert db.execute('SELECT COUNT(*) FROM users').fetchone()[0] >= 1
-              assert db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='sops'").fetchone()
-          PY
+      - run: python -m py_compile app.py traininghub/*.py tests/*.py
+      - run: python -m unittest discover -s tests -v
