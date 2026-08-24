@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="title-row">
+  <div><h1>Compliance alerts</h1><p class="muted">Staff below 80% mandatory training compliance.</p></div>
+  <form method="post" action="{{ url_for('alerts.run_check') }}"><button>Run alert check now</button></form>
+</div>
+<table><thead><tr><th>Created</th><th>Staff member</th><th>Department</th><th>Compliance</th><th>Recipient</th><th>Status</th></tr></thead><tbody>
+{% for a in rows %}<tr><td>{{ a.created_at }}</td><td>{{ a.name }}</td><td>{{ a.department }}</td><td>{{ a.percentage }}%</td><td>{{ a.recipient }}</td><td>{{ a.status }}</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
