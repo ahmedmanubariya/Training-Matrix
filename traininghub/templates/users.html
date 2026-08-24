@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Login management</h1>
+<div class="panel">
+  <h2>Create login</h2>
+  <form method="post" class="form-grid">
+    <label>Staff member<select name="employee_id"><option value="">No employee link</option>{% for e in employees %}<option value="{{ e.id }}">{{ e.name }} — {{ e.department }}</option>{% endfor %}</select></label>
+    <label>Username<input name="username" required></label>
+    <label>Email<input type="email" name="email"></label>
+    <label>Temporary password<input type="password" name="temp_password" minlength="12" required></label>
+    <label>Access<select name="access_role"><option value="staff">Staff</option>{% if me.access_role == 'admin' %}<option value="manager">Department manager</option><option value="admin">Administrator</option>{% endif %}</select></label>
+    {% if me.access_role == 'admin' %}<label>Department<input name="department"></label>{% endif %}
+    <button>Create login</button>
+  </form>
+</div>
+<table><thead><tr><th>Username</th><th>Staff</th><th>Access</th><th>Department</th><th>Last login</th></tr></thead><tbody>
+{% for u in users %}<tr><td>{{ u.username }}</td><td>{{ u.employee_name or '—' }}</td><td>{{ u.access_role }}</td><td>{{ u.department or u.employee_department or '—' }}</td><td>{{ u.last_login_at or 'Never' }}</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
