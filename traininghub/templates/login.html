@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="auth-card">
+  <h1>TrainingHub</h1>
+  <p>Staff training and SOP compliance</p>
+  <form method="post" class="stack">
+    <label>Username<input name="username" autocomplete="username" required autofocus></label>
+    <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+    <button>Sign in</button>
+  </form>
+</div>
+{% endblock %}
