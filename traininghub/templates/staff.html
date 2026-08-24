@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="title-row"><div><h1>Staff</h1><p class="muted">Create staff records and assign department/job role.</p></div></div>
+<div class="panel">
+  <h2>Add staff member</h2>
+  <form method="post" class="form-grid">
+    <label>Employee number<input name="employee_number"></label>
+    <label>Full name<input name="name" required></label>
+    <label>Email<input type="email" name="email"></label>
+    <label>Site<input name="site" value="Preston"></label>
+    <label>Department<input name="department"></label>
+    <label>Job role<input name="job_role"></label>
+    <button>Create staff member</button>
+  </form>
+</div>
+<table><thead><tr><th>Name</th><th>Employee no.</th><th>Department</th><th>Role</th><th>Site</th><th>Email</th></tr></thead><tbody>
+{% for e in employees %}<tr><td>{{ e.name }}</td><td>{{ e.employee_number or '—' }}</td><td>{{ e.department }}</td><td>{{ e.job_role or '—' }}</td><td>{{ e.site }}</td><td>{{ e.email or '—' }}</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
