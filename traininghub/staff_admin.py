@@ -1,8 +1,9 @@
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
+from .assignment_service import sync_role_assignments
 from .db import get_db
 from .routes import (
-    assignment_rows, audit, can_manage_employee, compliance, ensure_role_assignments,
+    assignment_rows, audit, can_manage_employee, compliance,
     manager_department, role_required, user,
 )
 
@@ -57,8 +58,8 @@ def edit(employee_id):
         ),
     )
     db.commit()
-    ensure_role_assignments(employee_id)
-    audit('EDIT_EMPLOYEE', 'employee', employee_id, 'Staff record updated')
+    sync_role_assignments(employee_id, assigned_by=current['id'])
+    audit('EDIT_EMPLOYEE', 'employee', employee_id, 'Staff record updated and role assignments synchronised')
     flash('Staff record updated.')
     return redirect(url_for('staff_admin.detail', employee_id=employee_id))
 
