@@ -1,0 +1,12 @@
+services:
+  traininghub:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      SECRET_KEY: "replace-this-before-real-use"
+      BOOTSTRAP_ADMIN_USERNAME: "admin"
+      BOOTSTRAP_ADMIN_PASSWORD: "ChangeMeNow!2026"
+      ALERT_THRESHOLD: "80"
+    volumes:
+      - ./instance:/app/instance
