@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Audit trail</h1>
+<table><thead><tr><th>Date/time</th><th>User</th><th>Action</th><th>Entity</th><th>Details</th><th>IP</th></tr></thead><tbody>
+{% for a in rows %}<tr><td>{{ a.created_at }}</td><td>{{ a.username or 'system' }}</td><td>{{ a.action }}</td><td>{{ a.entity_type }} {{ a.entity_id or '' }}</td><td>{{ a.details or '—' }}</td><td>{{ a.ip_address or '—' }}</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
