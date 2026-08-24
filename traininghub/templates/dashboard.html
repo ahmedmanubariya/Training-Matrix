@@ -9,7 +9,7 @@
 <tbody>
 {% for e in team %}
 <tr>
-  <td>{{ e.name }}</td><td>{{ e.department }}</td><td>{{ e.job_role or '—' }}</td>
+  <td><a href="{{ url_for('staff_admin.detail', employee_id=e.id) }}">{{ e.name }}</a></td><td>{{ e.department }}</td><td>{{ e.job_role or '—' }}</td>
   <td><div class="progress"><span style="width:{{ e.percentage }}%"></span></div>{{ e.percentage }}%</td>
   <td>{{ e.trained }}</td><td>{{ e.outstanding }}</td>
   <td>{% if e.percentage < 80 %}<span class="danger-pill">Below 80%</span>{% else %}—{% endif %}</td>
