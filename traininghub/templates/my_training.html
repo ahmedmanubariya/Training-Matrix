@@ -1,22 +1,16 @@
 {% extends 'base.html' %}
 {% block content %}
 {% if not employee %}
-<h1>My Training</h1><div class="warning">Your login is not linked to a staff record yet.</div>
+<section class="hero"><div class="eyebrow">My training</div><h1>My training</h1></section><div class="warning">Your login is not linked to a staff record yet.</div>
 {% else %}
-<div class="title-row">
-  <div><h1>{{ employee.name }}</h1><p class="muted">{{ employee.job_role or 'Role not assigned' }} · {{ employee.department }}</p></div>
-  <div class="pie-row"><div class="pie" style="--pct:{{ comp.percentage }}"></div><div><strong class="big">{{ comp.percentage }}%</strong><div>{{ comp.trained }} trained · {{ comp.outstanding }} outstanding</div></div></div>
+<section class="hero"><div class="eyebrow">My training</div><h1>{{ employee.name }}</h1><p>{{ employee.job_role or 'Role not assigned' }} · {{ employee.department }}</p></section>
+{% if comp.percentage < 80 %}<div class="warning"><strong>Action required:</strong> your mandatory training compliance is below 80%. Please complete outstanding or overdue training.</div>{% endif %}
+<div class="overview-grid">
+  <div class="panel"><div class="eyebrow">Training position</div><div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap"><div class="pie" style="--green-pct:{{ comp.percentage }};--yellow-pct:{{ 100-comp.percentage }}"><div class="pie-center"><div><strong>{{ comp.percentage }}%</strong><br><small>compliant</small></div></div></div><div class="legend" style="flex:1;min-width:220px"><div class="legend-row"><span><i class="dot green"></i>Read & understood</span><strong>{{ comp.trained }}</strong></div><div class="legend-row"><span><i class="dot yellow"></i>Outstanding / overdue</span><strong>{{ comp.outstanding }}</strong></div><div class="legend-row"><span>Total assigned</span><strong>{{ comp.total }}</strong></div></div></div></div>
+  <div class="panel"><div class="eyebrow">Controlled documents</div><h2>Continue training</h2><p class="lead" style="font-size:17px">Search your assigned controlled procedures, open the approved document and record Read & Understood.</p><a class="button wide-button" href="{{ url_for('experience.controlled_documents') }}">Open controlled documents</a></div>
 </div>
-{% if comp.percentage < 80 %}<div class="warning"><strong>Action required:</strong> your mandatory training is below 80%.</div>{% endif %}
-<div class="cards">
-  <div class="card"><strong>{{ comp.total }}</strong><span>Assigned</span></div>
-  <div class="card"><strong>{{ comp.trained }}</strong><span>Completed</span></div>
-  <div class="card"><strong>{{ comp.outstanding }}</strong><span>Outstanding</span></div>
-</div>
-<table><thead><tr><th>Reference</th><th>SOP / training</th><th>Revision</th><th>Status</th><th>Read</th><th>Signed</th></tr></thead><tbody>
-{% for r in rows %}
-<tr><td>{{ r.reference }}</td><td><a href="{{ url_for('main.training_detail', sop_id=r.sop_id) }}">{{ r.title }}</a></td><td>{{ r.version_revision or r.current_revision or '—' }}</td><td><span class="status {{ r.status|lower }}">{{ r.status }}</span></td><td>{{ 'Yes' if r.has_read else 'No' }}</td><td>{{ r.signed_at or '—' }}</td></tr>
-{% endfor %}
-</tbody></table>
+<div class="panel"><div class="eyebrow">Assignments</div><h2>My required training</h2><div class="table-wrap"><table><thead><tr><th>Reference</th><th>SOP / training</th><th>Revision</th><th>Status</th><th>Read</th><th>Signed</th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.reference }}</td><td><a href="{{ url_for('experience.document', sop_id=r.sop_id) }}">{{ r.title }}</a></td><td>{{ r.version_revision or r.current_revision or '—' }}</td><td><span class="status {{ r.status|lower }}">{{ r.status }}</span></td><td>{{ 'Yes' if r.has_read else 'No' }}</td><td>{{ r.signed_at or '—' }}</td></tr>{% endfor %}
+</tbody></table></div></div>
 {% endif %}
 {% endblock %}
