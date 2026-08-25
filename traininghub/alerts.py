@@ -3,22 +3,45 @@ import smtplib
 from datetime import datetime
 from email.message import EmailMessage
 
-from flask import Blueprint, flash, render_template, redirect, url_for
+from flask import Blueprint, current_app, flash, render_template, redirect, url_for
 
+from .compliance_service import refresh_employee_statuses
 from .db import get_db
 from .routes import compliance, manager_department, role_required, user, audit
 
 bp = Blueprint('alerts', __name__, url_prefix='/alerts')
 
 
+def training_breakdown(employee_id):
+    db = get_db()
+    row = db.execute(
+        '''SELECT
+             SUM(CASE WHEN COALESCE(tr.status,'OUTSTANDING')='OVERDUE' THEN 1 ELSE 0 END) overdue,
+             SUM(CASE WHEN COALESCE(tr.status,'OUTSTANDING')='OUTSTANDING' THEN 1 ELSE 0 END) outstanding,
+             SUM(CASE WHEN COALESCE(tr.status,'OUTSTANDING') IN ('COMPLIANT','DUE_SOON') THEN 1 ELSE 0 END) completed
+           FROM employee_assignments ea
+           JOIN sops s ON s.id=ea.sop_id AND s.active=1
+           LEFT JOIN training_records tr ON tr.employee_id=ea.employee_id AND tr.sop_id=ea.sop_id
+           WHERE ea.employee_id=? AND ea.active=1''',
+        (employee_id,),
+    ).fetchone()
+    return {
+        'overdue': int(row['overdue'] or 0),
+        'outstanding': int(row['outstanding'] or 0),
+        'completed': int(row['completed'] or 0),
+    }
+
+
 def send_or_queue(employee_id):
+    refresh_employee_statuses(employee_id)
     db = get_db()
     emp = db.execute('SELECT * FROM employees WHERE id=? AND active=1', (employee_id,)).fetchone()
     if not emp or not emp['email']:
         return False
 
     result = compliance(employee_id)
-    threshold = 80
+    breakdown = training_breakdown(employee_id)
+    threshold = int(current_app.config.get('ALERT_THRESHOLD', 80))
     if result['percentage'] >= threshold:
         return False
 
@@ -36,13 +59,18 @@ def send_or_queue(employee_id):
     if host:
         try:
             msg = EmailMessage()
-            msg['Subject'] = f"Training compliance alert: {result['percentage']}%"
+            msg['Subject'] = f"Action required: training compliance {result['percentage']}%"
             msg['From'] = os.environ.get('SMTP_FROM', 'training@example.local')
             msg['To'] = emp['email']
             msg.set_content(
                 f"Hello {emp['name']},\n\n"
-                f"Your mandatory training compliance is {result['percentage']}%, below the {threshold}% threshold.\n"
-                "Please log in to TrainingHub and complete your outstanding assigned training.\n"
+                f"Your mandatory training compliance is currently {result['percentage']}%, "
+                f"which is below the Eaststone minimum requirement of {threshold}%.\n\n"
+                f"Outstanding training: {breakdown['outstanding']}\n"
+                f"Overdue training: {breakdown['overdue']}\n\n"
+                "Please log in to the Controlled Documents & Training portal, open your assigned "
+                "procedures and complete the Read & Understood acknowledgement for each item requiring action.\n\n"
+                "This reminder was generated automatically by the training compliance system.\n"
             )
             with smtplib.SMTP(host, int(os.environ.get('SMTP_PORT', '25')), timeout=10) as server:
                 if os.environ.get('SMTP_STARTTLS') == '1':
@@ -53,6 +81,7 @@ def send_or_queue(employee_id):
             status = 'SENT'
             sent_at = datetime.utcnow().isoformat(timespec='seconds')
         except Exception:
+            current_app.logger.exception('Training compliance email failed')
             status = 'FAILED'
 
     db.execute(
