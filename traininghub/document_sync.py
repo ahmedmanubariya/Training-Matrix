@@ -10,6 +10,14 @@ from flask import current_app
 from .db import get_db
 
 SUPPORTED = {'.pdf', '.docx', '.pptx', '.txt'}
+
+# Eaststone controlled-document convention, e.g.
+# ES.SOP.001.V10 - Writing of Standard Operating Procedures & Forms.pdf
+# ES.SOP.003.V07 - Eaststone Site Induction.pdf
+EASTSTONE_PATTERN = re.compile(
+    r'(?i)^(?P<ref>ES\.[A-Z]+\.\d{3}(?:\.[A-Z]\d{2})?)\.(?P<rev>V\d{2,3})\s*-\s*(?P<title>.+)$'
+)
+
 REV_PATTERNS = [
     re.compile(r'(?i)^(?P<ref>.+?)[ _-]+(?:rev(?:ision)?|ver(?:sion)?|v)[ _-]?(?P<rev>[A-Za-z0-9.]+)$'),
     re.compile(r'(?i)^(?P<ref>[A-Za-z0-9._-]+?)[ _-]+(?P<rev>\d{2,4})$'),
@@ -25,40 +33,63 @@ def _hash(path):
 
 
 def _natural_revision_key(value):
-    """Sort common revisions naturally: 001 < 002 < 010 and A1 < A2."""
+    """Sort common revisions naturally: V01 < V02 < V10 and A1 < A2."""
     parts = re.split(r'(\d+)', str(value or ''))
     return tuple(int(p) if p.isdigit() else p.lower() for p in parts)
 
 
-def parse_filename(path):
+def parse_document_filename(path):
+    """Return (reference, revision, title) from an approved document filename.
+
+    Eaststone SOP filenames are parsed first so the master record is clean and stable.
+    A safe generic fallback is retained for other controlled document types.
+    """
     stem = path.stem.strip()
+
+    match = EASTSTONE_PATTERN.match(stem)
+    if match:
+        return (
+            match.group('ref').upper(),
+            match.group('rev').upper(),
+            match.group('title').strip(),
+        )
+
     for pattern in REV_PATTERNS:
         match = pattern.match(stem)
         if match:
-            return match.group('ref').strip(' _-'), match.group('rev').strip()
+            reference = match.group('ref').strip(' _-')
+            revision = match.group('rev').strip()
+            return reference, revision, reference
+
     # If a filename does not contain an explicit revision, its modified time is used
-    # as the revision ordering fallback. QA can still correct metadata in Document Control.
-    return stem, str(int(path.stat().st_mtime))
+    # as the ordering fallback. QA can correct metadata in Document Control.
+    return stem, str(int(path.stat().st_mtime)), stem
+
+
+def parse_filename(path):
+    """Compatibility wrapper used by older callers/tests."""
+    reference, revision, _title = parse_document_filename(path)
+    return reference, revision
 
 
 def _latest_candidates(root):
     """Return one latest file per parsed document reference.
 
-    Approved folders often retain old revisions. We therefore group files by reference and
-    choose the highest natural revision; modified time breaks ties. This prevents an older
-    retained file from superseding the current revision on the next scan.
+    Approved folders often retain old revisions. We group by stable reference and choose the
+    highest natural revision; modified time breaks ties. This prevents an older retained file
+    from superseding the current revision on a later scan.
     """
     grouped = {}
     scanned = 0
     for path in sorted(p for p in root.rglob('*') if p.is_file() and p.suffix.lower() in SUPPORTED):
         scanned += 1
-        reference, revision = parse_filename(path)
-        candidate = (path, revision)
+        reference, revision, title = parse_document_filename(path)
+        candidate = (path, revision, title)
         existing = grouped.get(reference)
         if existing is None:
             grouped[reference] = candidate
             continue
-        old_path, old_revision = existing
+        old_path, old_revision, _old_title = existing
         new_key = (_natural_revision_key(revision), path.stat().st_mtime)
         old_key = (_natural_revision_key(old_revision), old_path.stat().st_mtime)
         if new_key > old_key:
@@ -102,7 +133,7 @@ def sync_approved_folder(root=None, actor_user_id=None):
         'errors': [],
     }
 
-    for reference, (path, revision) in sorted(candidates.items()):
+    for reference, (path, revision, title) in sorted(candidates.items()):
         try:
             digest = _hash(path)
             stat = path.stat()
@@ -120,6 +151,12 @@ def sync_approved_folder(root=None, actor_user_id=None):
                        last_seen_at=CURRENT_TIMESTAMP WHERE id=?''',
                     (str(path), stat.st_mtime, stat.st_size, source['id']),
                 )
+                # Keep title aligned with the approved filename even when the file itself is unchanged.
+                if title and sop['title'] != title:
+                    db.execute(
+                        'UPDATE sops SET title=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
+                        (title, sop['id']),
+                    )
                 result['unchanged'] += 1
                 continue
 
@@ -127,7 +164,7 @@ def sync_approved_folder(root=None, actor_user_id=None):
                 cur = db.execute(
                     '''INSERT INTO sops(reference,title,category,sop_type,current_revision,active)
                        VALUES(?,?,?,'Controlled Document',?,1)''',
-                    (reference, reference, 'Approved SOPs', revision),
+                    (reference, title or reference, 'Approved SOPs', revision),
                 )
                 sop_id = cur.lastrowid
                 result['created'] += 1
@@ -152,9 +189,9 @@ def sync_approved_folder(root=None, actor_user_id=None):
                  stat.st_size, actor_user_id),
             )
             db.execute(
-                '''UPDATE sops SET current_revision=?,updated_at=CURRENT_TIMESTAMP,active=1
+                '''UPDATE sops SET title=?,current_revision=?,updated_at=CURRENT_TIMESTAMP,active=1
                    WHERE id=?''',
-                (revision, sop_id),
+                (title or reference, revision, sop_id),
             )
             db.execute(
                 '''INSERT INTO document_sources(sop_id,source_path,source_mtime,source_size,source_hash,last_seen_at)
@@ -182,7 +219,8 @@ def sync_approved_folder(root=None, actor_user_id=None):
 
             _audit(
                 db, actor_user_id, action, 'sop', sop_id,
-                f'reference={reference}; revision={revision}; source={path}; assignees_reset={len(assignees)}',
+                f'reference={reference}; revision={revision}; title={title}; source={path}; '
+                f'assignees_reset={len(assignees)}',
             )
         except Exception as exc:
             result['errors'].append({'file': str(path), 'error': str(exc)})
