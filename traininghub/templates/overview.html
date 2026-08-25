@@ -2,32 +2,55 @@
 {% block content %}
 <section class="hero">
   <div class="eyebrow">Compliance overview</div>
-  <h1>Good {{ 'morning' if now_hour is defined and now_hour < 12 else 'afternoon' }}, {{ me.employee_name or me.username }}</h1>
+  <h1>Good afternoon, {{ me.employee_name or me.username }}</h1>
   <p>Your controlled-document and training position at a glance.</p>
 </section>
+
 <div class="cards">
-  <div class="metric-card"><div class="metric-icon">▣</div><div><span>Open training</span><strong>{{ metrics.outstanding }}</strong><small>Assigned and not completed</small></div></div>
-  <div class="metric-card red"><div class="metric-icon">△</div><div><span>Overdue</span><strong>{{ metrics.overdue }}</strong><small>Requires attention</small></div></div>
-  <div class="metric-card yellow"><div class="metric-icon">◷</div><div><span>Compliance target</span><strong>80%</strong><small>Minimum required</small></div></div>
-  <div class="metric-card blue"><div class="metric-icon">✓</div><div><span>Completed</span><strong>{{ metrics.completed }}</strong><small>Version-specific evidence</small></div></div>
+  <div class="metric-card">
+    <div class="metric-icon">▣</div>
+    <div class="metric-copy"><span>Open training</span><strong>{{ metrics.outstanding }}</strong><small>Assigned and not completed</small></div>
+  </div>
+  <div class="metric-card red">
+    <div class="metric-icon">△</div>
+    <div class="metric-copy"><span>Overdue</span><strong>{{ metrics.overdue }}</strong><small>Requires attention</small></div>
+  </div>
+  <div class="metric-card yellow">
+    <div class="metric-icon">◷</div>
+    <div class="metric-copy"><span>Compliance target</span><strong>80%</strong><small>Minimum training position</small></div>
+  </div>
+  <div class="metric-card blue">
+    <div class="metric-icon">✓</div>
+    <div class="metric-copy"><span>Completed</span><strong>{{ metrics.completed }}</strong><small>Version-specific evidence</small></div>
+  </div>
 </div>
+
 <div class="overview-grid">
-  <div class="panel">
+  <section class="panel">
     <div class="eyebrow">My training position</div>
-    <div style="display:flex;gap:30px;align-items:center;flex-wrap:wrap">
-      <div class="pie" style="--green-pct:{{ metrics.percentage }};--yellow-pct:{{ (100-metrics.percentage) if metrics.overdue == 0 else ((metrics.outstanding * 100 / metrics.total) if metrics.total else 0) }}"><div class="pie-center"><div><strong>{{ metrics.percentage }}%</strong><br><small>compliant</small></div></div></div>
-      <div class="legend" style="flex:1;min-width:220px">
-        <div class="legend-row"><span><i class="dot green"></i>Read & understood</span><strong>{{ metrics.completed }}</strong></div>
+    <h2>Training compliance</h2>
+    <div class="pie-wrap">
+      <div class="pie" style="--green-pct:{{ metrics.percentage }};--yellow-pct:{{ ((metrics.outstanding * 100 / metrics.total) if metrics.total else 0) }}">
+        <div class="pie-center"><div><strong>{{ metrics.percentage }}%</strong><br><small>compliant</small></div></div>
+      </div>
+      <div class="legend">
+        <div class="legend-row"><span><i class="dot green"></i>Read &amp; understood</span><strong>{{ metrics.completed }}</strong></div>
         <div class="legend-row"><span><i class="dot yellow"></i>Outstanding</span><strong>{{ metrics.outstanding }}</strong></div>
         <div class="legend-row"><span><i class="dot red"></i>Overdue</span><strong>{{ metrics.overdue }}</strong></div>
       </div>
     </div>
-  </div>
-  <div class="panel">
+  </section>
+
+  <section class="panel">
     <div class="eyebrow">Next action</div>
-    {% if metrics.percentage < 80 %}<div class="warning"><strong>Compliance below 80%.</strong><p>Your outstanding/overdue training needs attention. An automated reminder will be generated.</p></div>{% endif %}
-    <p class="lead" style="font-size:17px">Open your controlled documents, read the current approved revision and record Read & Understood.</p>
+    <h2>Keep your training current</h2>
+    {% if metrics.percentage < 80 %}
+      <div class="warning"><strong>Compliance is below 80%.</strong><p>You have training that needs attention. The system will generate an automated reminder to your registered email address.</p></div>
+    {% else %}
+      <p class="lead" style="font-size:17px">Your current compliance is at or above the required 80% threshold.</p>
+    {% endif %}
+    <p class="muted">Open Controlled documents, read the current approved revision and select <strong>Read &amp; Understood</strong> to create your electronic training record.</p>
     <a class="button wide-button" href="{{ url_for('experience.controlled_documents') }}">Open controlled documents</a>
-  </div>
+  </section>
 </div>
 {% endblock %}
