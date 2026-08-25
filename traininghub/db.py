@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT,
   password_hash TEXT NOT NULL,
   access_role TEXT NOT NULL CHECK(access_role IN ('staff','manager','admin')),
+  permission_role TEXT,
   employee_id INTEGER,
   department TEXT,
   active INTEGER NOT NULL DEFAULT 1,
@@ -70,6 +71,17 @@ CREATE TABLE IF NOT EXISTS sop_versions (
   uploaded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(sop_id) REFERENCES sops(id),
   FOREIGN KEY(uploaded_by) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS document_sources (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sop_id INTEGER NOT NULL UNIQUE,
+  source_path TEXT NOT NULL,
+  source_mtime REAL,
+  source_size INTEGER,
+  source_hash TEXT,
+  last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(sop_id) REFERENCES sops(id)
 );
 
 CREATE TABLE IF NOT EXISTS role_requirements (
@@ -182,10 +194,35 @@ def close_db(_exc=None):
         db.close()
 
 
+def _has_column(db, table, column):
+    return any(row['name'] == column for row in db.execute(f'PRAGMA table_info({table})').fetchall())
+
+
+def migrate_db():
+    db = get_db()
+    if not _has_column(db, 'users', 'permission_role'):
+        db.execute('ALTER TABLE users ADD COLUMN permission_role TEXT')
+    db.execute("UPDATE users SET permission_role=access_role WHERE permission_role IS NULL OR permission_role='' ")
+    db.executescript('''
+      CREATE TABLE IF NOT EXISTS document_sources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sop_id INTEGER NOT NULL UNIQUE,
+        source_path TEXT NOT NULL,
+        source_mtime REAL,
+        source_size INTEGER,
+        source_hash TEXT,
+        last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(sop_id) REFERENCES sops(id)
+      );
+    ''')
+    db.commit()
+
+
 def init_db():
     db = get_db()
     db.executescript(SCHEMA)
     db.commit()
+    migrate_db()
 
 
 def init_app(app):
