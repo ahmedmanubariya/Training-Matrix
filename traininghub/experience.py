@@ -1,7 +1,10 @@
 from datetime import date, timedelta
 from pathlib import Path
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, send_from_directory, url_for
+from flask import (
+    Blueprint, abort, current_app, flash, redirect, render_template, request,
+    send_from_directory, url_for,
+)
 from werkzeug.security import check_password_hash
 
 from .db import get_db
@@ -63,6 +66,50 @@ def personal_metrics(employee_id):
     }
 
 
+def library_rows(employee_id=None, search=''):
+    """Return every active approved document plus the current user's training position.
+
+    The library is reference material for every authorised login. Assignment-specific status
+    and acknowledgement controls are layered on top for the employee linked to the account.
+    """
+    db = get_db()
+    params = []
+    if employee_id:
+        sql = '''SELECT s.id sop_id,s.reference,s.title,s.category,s.current_revision,
+                        v.id version_id,v.original_name,v.revision version_revision,
+                        ea.id assignment_id,
+                        CASE WHEN ea.id IS NULL THEN 'REFERENCE'
+                             ELSE COALESCE(tr.status,'OUTSTANDING') END status,
+                        CASE WHEN mr.id IS NULL THEN 0 ELSE 1 END has_read,
+                        (SELECT MAX(sig.signed_at) FROM signatures sig
+                           WHERE sig.employee_id=? AND sig.sop_id=s.id) signed_at,
+                        tr.completion_date,tr.expiry_date
+                 FROM sops s
+                 LEFT JOIN sop_versions v ON v.sop_id=s.id AND v.status='ACTIVE'
+                 LEFT JOIN employee_assignments ea
+                   ON ea.sop_id=s.id AND ea.employee_id=? AND ea.active=1
+                 LEFT JOIN training_records tr
+                   ON tr.employee_id=? AND tr.sop_id=s.id
+                 LEFT JOIN users u ON u.employee_id=? AND u.active=1
+                 LEFT JOIN material_reads mr ON mr.user_id=u.id AND mr.version_id=v.id
+                 WHERE s.active=1'''
+        params.extend([employee_id, employee_id, employee_id, employee_id])
+    else:
+        sql = '''SELECT s.id sop_id,s.reference,s.title,s.category,s.current_revision,
+                        v.id version_id,v.original_name,v.revision version_revision,
+                        NULL assignment_id,'REFERENCE' status,0 has_read,NULL signed_at,
+                        NULL completion_date,NULL expiry_date
+                 FROM sops s
+                 LEFT JOIN sop_versions v ON v.sop_id=s.id AND v.status='ACTIVE'
+                 WHERE s.active=1'''
+    if search:
+        sql += ' AND (LOWER(s.reference) LIKE ? OR LOWER(s.title) LIKE ?)'
+        like = f'%{search.lower()}%'
+        params.extend([like, like])
+    sql += ' ORDER BY s.reference,s.title'
+    return db.execute(sql, params).fetchall()
+
+
 @bp.route('/overview')
 @login_required
 def overview():
@@ -77,23 +124,9 @@ def overview():
 @login_required
 def controlled_documents():
     u = user()
-    q = request.args.get('q', '').strip().lower()
-    role = effective_role(u)
-    if role == 'user' or u['access_role'] == 'staff':
-        rows = assigned_rows(u['employee_id'])
-    elif u['employee_id']:
-        rows = assigned_rows(u['employee_id'])
-    else:
-        rows = get_db().execute(
-            '''SELECT s.id sop_id,s.reference,s.title,s.category,s.current_revision,
-                      'REFERENCE' status,v.id version_id,v.original_name,v.revision version_revision,
-                      0 has_read,NULL signed_at,NULL completion_date,NULL expiry_date
-               FROM sops s LEFT JOIN sop_versions v ON v.sop_id=s.id AND v.status='ACTIVE'
-               WHERE s.active=1 ORDER BY s.reference,s.title'''
-        ).fetchall()
-    if q:
-        rows = [r for r in rows if q in (r['reference'] or '').lower() or q in (r['title'] or '').lower()]
-    return render_template('controlled_documents.html', rows=rows, q=request.args.get('q', ''), role=role)
+    q = request.args.get('q', '').strip()
+    rows = library_rows(u['employee_id'], q)
+    return render_template('controlled_documents.html', rows=rows, q=q, role=effective_role(u))
 
 
 @bp.route('/controlled-documents/<int:sop_id>')
@@ -122,13 +155,15 @@ def document(sop_id):
     signatures = []
     if u['employee_id']:
         signatures = db.execute(
-            '''SELECT sig.*,v.original_name FROM signatures sig JOIN sop_versions v ON v.id=sig.version_id
+            '''SELECT sig.*,v.original_name FROM signatures sig
+               JOIN sop_versions v ON v.id=sig.version_id
                WHERE sig.employee_id=? AND sig.sop_id=? ORDER BY sig.signed_at DESC''',
             (u['employee_id'], sop_id),
         ).fetchall()
-    return render_template('controlled_document_detail.html', sop=sop, version=version,
-                           assigned=assigned, record=record, signatures=signatures,
-                           acknowledgement=ACKNOWLEDGEMENT)
+    return render_template(
+        'controlled_document_detail.html', sop=sop, version=version, assigned=assigned,
+        record=record, signatures=signatures, acknowledgement=ACKNOWLEDGEMENT,
+    )
 
 
 @bp.route('/controlled-documents/material/<int:version_id>')
@@ -136,16 +171,20 @@ def document(sop_id):
 def document_material(version_id):
     u = user()
     db = get_db()
-    v = db.execute(
+    version = db.execute(
         '''SELECT v.*,s.id sop_id FROM sop_versions v JOIN sops s ON s.id=v.sop_id
-           WHERE v.id=? AND v.status='ACTIVE' AND s.active=1''', (version_id,)
+           WHERE v.id=? AND v.status='ACTIVE' AND s.active=1''',
+        (version_id,),
     ).fetchone()
-    if not v:
+    if not version:
         abort(404)
+
+    # Every authorised user may open the active controlled document. If it is assigned to
+    # their employee record, the read event becomes part of the training acknowledgement flow.
     if u['employee_id']:
         assigned = db.execute(
             'SELECT 1 FROM employee_assignments WHERE employee_id=? AND sop_id=? AND active=1',
-            (u['employee_id'], v['sop_id']),
+            (u['employee_id'], version['sop_id']),
         ).fetchone()
         if assigned:
             db.execute(
@@ -154,10 +193,13 @@ def document_material(version_id):
                 (u['id'], u['employee_id'], version_id),
             )
             db.commit()
+
     audit('OPEN_CONTROLLED_DOCUMENT', 'sop_version', version_id, 'Controlled document opened')
     upload_dir = Path(current_app.instance_path) / current_app.config['UPLOAD_FOLDER']
-    return send_from_directory(upload_dir, v['stored_name'], as_attachment=False,
-                               download_name=v['original_name'])
+    return send_from_directory(
+        upload_dir, version['stored_name'], as_attachment=False,
+        download_name=version['original_name'],
+    )
 
 
 @bp.post('/controlled-documents/<int:sop_id>/acknowledge')
@@ -173,16 +215,21 @@ def acknowledge(sop_id):
     ).fetchone()
     if not assignment:
         abort(403)
+
     version_id = request.form.get('version_id', type=int)
     version = db.execute(
-        "SELECT v.*,s.validity_months FROM sop_versions v JOIN sops s ON s.id=v.sop_id WHERE v.id=? AND v.sop_id=? AND v.status='ACTIVE'",
+        '''SELECT v.*,s.validity_months FROM sop_versions v JOIN sops s ON s.id=v.sop_id
+           WHERE v.id=? AND v.sop_id=? AND v.status='ACTIVE' AND s.active=1''',
         (version_id, sop_id),
     ).fetchone()
-    read = db.execute('SELECT 1 FROM material_reads WHERE user_id=? AND version_id=?',
-                      (u['id'], version_id)).fetchone()
+    read = db.execute(
+        'SELECT 1 FROM material_reads WHERE user_id=? AND version_id=?',
+        (u['id'], version_id),
+    ).fetchone()
     if not version or not read:
         flash('Please open and read the current PDF before selecting Read & Understood.')
         return redirect(url_for('experience.document', sop_id=sop_id))
+
     signed_name = request.form.get('signed_name', '').strip()
     password = request.form.get('password', '')
     if signed_name.casefold() != (u['employee_name'] or '').strip().casefold():
@@ -191,16 +238,19 @@ def acknowledge(sop_id):
     if not check_password_hash(u['password_hash'], password):
         flash('Password confirmation failed. Nothing was signed.')
         return redirect(url_for('experience.document', sop_id=sop_id))
+
     months = version['validity_months']
     expiry = (date.today() + timedelta(days=int(months) * 30)).isoformat() if months else None
     db.execute(
-        '''INSERT INTO signatures(user_id,employee_id,sop_id,version_id,signed_name,statement,revision,ip_address)
+        '''INSERT INTO signatures(user_id,employee_id,sop_id,version_id,signed_name,statement,
+                                  revision,ip_address)
            VALUES(?,?,?,?,?,?,?,?)''',
         (u['id'], u['employee_id'], sop_id, version_id, signed_name, ACKNOWLEDGEMENT,
          version['revision'], request.remote_addr),
     )
     db.execute(
-        '''INSERT INTO training_records(employee_id,sop_id,status,completion_date,expiry_date,revision_completed)
+        '''INSERT INTO training_records(employee_id,sop_id,status,completion_date,expiry_date,
+                                        revision_completed)
            VALUES(?,?,'COMPLIANT',?,?,?)
            ON CONFLICT(employee_id,sop_id) DO UPDATE SET status='COMPLIANT',
              completion_date=excluded.completion_date,expiry_date=excluded.expiry_date,
@@ -208,7 +258,9 @@ def acknowledge(sop_id):
         (u['employee_id'], sop_id, date.today().isoformat(), expiry, version['revision']),
     )
     db.commit()
-    audit('READ_AND_UNDERSTOOD', 'sop', sop_id,
-          f"employee={u['employee_id']}, revision={version['revision']}, signed_name={signed_name}")
+    audit(
+        'READ_AND_UNDERSTOOD', 'sop', sop_id,
+        f"employee={u['employee_id']}, revision={version['revision']}, signed_name={signed_name}",
+    )
     flash('Read & Understood recorded with your electronic signature and timestamp.')
     return redirect(url_for('experience.overview'))
