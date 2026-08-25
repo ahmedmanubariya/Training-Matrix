@@ -1,97 +1,140 @@
-# Training Matrix / TrainingHub
+# Eaststone TrainingHub
 
-TrainingHub is a browser-based staff training and SOP compliance application.
+TrainingHub is a full-stack controlled-document and staff-training portal.
+
+## Architecture
+
+```text
+Vite + React frontend (port 5173)
+        |
+        | JSON / session API
+        v
+Python / Flask backend (port 5000)
+        |
+        +-- training database
+        +-- approved SOP folder synchronisation
+        +-- electronic Read & Understood evidence
+        +-- audit trail
+        +-- compliance calculations
+        +-- automated email alerts
+```
+
+The React frontend is under `frontend/`. The Python backend remains under `traininghub/` and exposes JSON endpoints under `/api`.
 
 ## Current application functionality
 
-- staff, department manager and administrator accounts
-- forced password change for temporary passwords
-- staff records with site, department and job role
-- SOP/training catalogue
-- controlled SOP revision uploads
-- previous revisions retained as superseded history
+- Vite + React eQMS-style portal interface
+- responsive Eaststone green/gold/white design
+- staff, department manager, QA and administrator permission model
+- personal compliance dashboard and pie/donut chart
+- searchable controlled-document library
+- version-specific Read & Understood electronic acknowledgement
+- signature evidence with revision and date/time
+- department/team compliance metrics
+- below-80% compliance warning and email-alert engine
+- controlled SOP revision history
 - safe SOP retirement rather than destructive deletion
 - role-to-SOP requirements
-- automatic staff training assignment from job role
-- automatic reset to `OUTSTANDING` when a new SOP revision is uploaded
-- staff self-service training dashboard
-- training material read tracking
-- electronic acknowledgement requiring typed name and password re-entry
-- signature history with revision, date/time and IP address
-- personal compliance pie chart
-- department manager compliance dashboard
-- below-80% alert engine with SMTP support or queued alerts
-- administrator audit trail
+- automatic training assignment from job role
+- automatic reset to `OUTSTANDING` when a new approved revision appears
+- approved-folder synchronisation with latest-revision selection
+- audit trail
 
-## Windows desktop installation
+## GitHub Codespaces — easiest way to run the new UI
 
-The repository now includes a one-click local installer.
+Rebuild the Codespace after pulling the latest repository changes because the devcontainer now installs Node.js for Vite.
 
-1. Download the repository as a ZIP from GitHub and extract it to a normal folder, or `git pull` an existing local clone.
-2. Double-click **`Install TrainingHub.cmd`**.
-3. The installer creates a private local application folder under `%LOCALAPPDATA%\TrainingHub`, a separate data folder under `%LOCALAPPDATA%\TrainingHubData`, a Python virtual environment and a **TrainingHub** desktop shortcut.
-4. At the end of installation TrainingHub opens automatically in your default browser.
-5. After that, use the **TrainingHub** desktop shortcut whenever you want to open the UI.
+When the Codespace starts it forwards:
 
-Python 3.10+ must already be installed on the PC. The installer does not store the database, uploaded SOPs or secrets in the Git repository.
+- **5173 — TrainingHub React UI**
+- **5000 — TrainingHub Python API**
 
-The local UI opens at `http://127.0.0.1:5000`.
+The Codespace installs frontend packages and starts both services automatically. Open the forwarded **5173** port to see the React interface.
 
-On first run, the development bootstrap login is:
+If you need to start them manually:
 
-```text
-Username: admin
-Temporary password: ChangeMeNow!2026
-```
-
-You will be asked to change the temporary password.
-
-## Repository safety
-
-Do **not** commit real employee records, controlled SOP documents, database files, passwords, credentials, production exports or backups to this repository. The `.gitignore` is configured to block common local data files and upload folders.
-
-If this repository is going to be used for organisational development, make it **private** before adding any non-public information.
-
-## Local development
-
-Python 3.10+ is required.
+### Terminal 1 — Python backend
 
 ```bash
-python -m venv .venv
-# Windows PowerShell:
-.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-python app.py
+gunicorn --bind 0.0.0.0:5000 --workers 1 app:app
 ```
 
-Open `http://127.0.0.1:5000`.
+### Terminal 2 — React frontend
 
-On the first run, if there are no users, TrainingHub creates a bootstrap administrator account. The development defaults are:
+```bash
+cd frontend
+npm install
+npm run dev -- --host 0.0.0.0
+```
+
+Open `http://127.0.0.1:5173` locally or the Codespaces forwarded 5173 URL.
+
+The Vite development server proxies `/api` and `/controlled-documents` requests to the Python backend on port 5000.
+
+## Development login
+
+On first run, if the database has no users, TrainingHub creates a bootstrap administrator:
 
 ```text
 Username: admin
 Temporary password: ChangeMeNow!2026
 ```
 
-Change the bootstrap credentials using environment variables before a real deployment. See `.env.example`.
+Change bootstrap credentials before any non-development deployment.
 
-## Docker
+## Approved Eaststone folder synchronisation
 
-```bash
-docker build -t traininghub .
-docker run --rm -p 5000:5000 -e SECRET_KEY="replace-me" traininghub
+The Python backend can monitor a server-accessible Approved SOPs folder using:
+
+```text
+APPROVED_DOCS_ROOT=\\eaststone-server\Approved SOPs
+APPROVED_DOCS_SYNC_SECONDS=300
 ```
 
-Then open `http://127.0.0.1:5000`.
+The deployed backend server must have operating-system/network permission to read that path. GitHub itself does not access the Eaststone drive.
+
+The synchroniser:
+
+1. scans supported approved files;
+2. groups retained revisions by document reference;
+3. selects the latest approved revision;
+4. hashes content to identify actual changes;
+5. stores the effective revision as immutable application evidence;
+6. supersedes the previous application version;
+7. resets current assignees to outstanding for retraining; and
+8. records the change in the audit trail.
 
 ## Email alerts
 
-When a compliance check is run, staff below the 80% threshold are added to the alert log. If SMTP variables are configured, TrainingHub attempts to email the employee; otherwise the alert remains queued for testing.
+Staff whose mandatory training compliance falls below the configured threshold (default **80%**) can receive an automated reminder showing their compliance percentage, outstanding count and overdue count.
 
-Configure the variables shown in `.env.example`.
+Configure SMTP variables in `.env.example` or use your organisation's approved mail integration in production.
+
+## Repository safety
+
+Do **not** commit real employee records, controlled SOP files, passwords, production databases, mail credentials, network-drive credentials or backups to GitHub.
+
+The repository should be made **private** before organisational information or production infrastructure details are introduced.
 
 ## Production direction
 
-The current repository is a working development application. A production organisational deployment should replace development components with Microsoft Entra ID/SSO and MFA, PostgreSQL or SQL Server, protected document storage, HTTPS, scheduled background jobs, approved mail delivery, central logging, automated backups and restore testing.
+The intended production topology is:
 
-Where the system will be the authoritative regulated training record, electronic signatures, audit trails, record retention, access control and change control must be validated against your organisation's requirements before release.
+```text
+Users / browsers
+      |
+    HTTPS
+      |
+Reverse proxy / load balancer
+      |----------------------|
+      v                      v
+React static frontend    Python API service
+                             |
+            |----------------|----------------|
+            v                v                v
+       SQL database     Approved SOPs     Email service
+                        file source
+```
+
+For organisational deployment, use Microsoft Entra ID/SSO + MFA, PostgreSQL or SQL Server, HTTPS, controlled document storage, scheduled background workers, approved email delivery, central logging, backup/restore testing and the validation/change-control process required for the intended regulated use.
