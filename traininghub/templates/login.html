@@ -1,12 +1,14 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="auth-card">
-  <h1>TrainingHub</h1>
-  <p>Staff training and SOP compliance</p>
+  <div class="eyebrow">Controlled documents &amp; training</div>
+  <h1>Eaststone</h1>
+  <p>Sign in to access your training position and current approved procedures.</p>
   <form method="post" class="stack">
     <label>Username<input name="username" autocomplete="username" required autofocus></label>
     <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
-    <button>Sign in</button>
+    <button class="wide-button">Sign in</button>
   </form>
+  <p class="muted" style="font-size:12px;margin-top:18px">Access is restricted to authorised Eaststone personnel. Training acknowledgements are recorded against the authenticated account.</p>
 </div>
 {% endblock %}
