@@ -1,14 +1,22 @@
 import time
 
-from flask import Blueprint, current_app, request
+from flask import Blueprint, current_app, redirect, request, url_for
 
 from .alerts import send_or_queue
 from .compliance_service import refresh_department, refresh_employee_statuses
 from .document_sync import sync_approved_folder
+from .experience import effective_role
 from .routes import manager_department, user
 
 bp = Blueprint('hooks', __name__)
 _last_document_sync = 0.0
+
+
+@bp.before_app_request
+def portal_landing_page():
+    """Every authenticated account lands on its own personal compliance overview."""
+    if request.endpoint == 'main.home' and user():
+        return redirect(url_for('experience.overview'))
 
 
 @bp.before_app_request
@@ -38,17 +46,26 @@ def automatic_approved_document_sync():
 @bp.before_app_request
 def refresh_compliance_before_dashboards():
     """Keep compliance statuses and below-80% alerts current without spreadsheet checks."""
-    if request.endpoint not in {'main.my_training', 'main.dashboard', 'experience.overview', 'experience.controlled_documents'}:
+    endpoints = {
+        'main.my_training', 'main.dashboard', 'experience.overview',
+        'experience.controlled_documents', 'experience.document',
+    }
+    if request.endpoint not in endpoints:
         return
     current = user()
     if not current:
         return
 
-    if current['employee_id'] and request.endpoint in {'main.my_training', 'experience.overview', 'experience.controlled_documents'}:
+    if current['employee_id'] and request.endpoint in {
+        'main.my_training', 'experience.overview', 'experience.controlled_documents',
+        'experience.document',
+    }:
         refresh_employee_statuses(current['employee_id'])
         send_or_queue(current['employee_id'])
 
-    if request.endpoint == 'main.dashboard' and current['access_role'] == 'admin':
-        refresh_department(None)
-    elif request.endpoint == 'main.dashboard' and current['access_role'] == 'manager':
-        refresh_department(manager_department(current))
+    if request.endpoint == 'main.dashboard':
+        role = effective_role(current)
+        if role in ('qa', 'admin'):
+            refresh_department(None)
+        elif role == 'manager':
+            refresh_department(manager_department(current))
