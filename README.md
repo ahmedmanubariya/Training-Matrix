@@ -23,6 +23,29 @@ TrainingHub is a browser-based staff training and SOP compliance application.
 - below-80% alert engine with SMTP support or queued alerts
 - administrator audit trail
 
+## Windows desktop installation
+
+The repository now includes a one-click local installer.
+
+1. Download the repository as a ZIP from GitHub and extract it to a normal folder, or `git pull` an existing local clone.
+2. Double-click **`Install TrainingHub.cmd`**.
+3. The installer creates a private local application folder under `%LOCALAPPDATA%\TrainingHub`, a separate data folder under `%LOCALAPPDATA%\TrainingHubData`, a Python virtual environment and a **TrainingHub** desktop shortcut.
+4. At the end of installation TrainingHub opens automatically in your default browser.
+5. After that, use the **TrainingHub** desktop shortcut whenever you want to open the UI.
+
+Python 3.10+ must already be installed on the PC. The installer does not store the database, uploaded SOPs or secrets in the Git repository.
+
+The local UI opens at `http://127.0.0.1:5000`.
+
+On first run, the development bootstrap login is:
+
+```text
+Username: admin
+Temporary password: ChangeMeNow!2026
+```
+
+You will be asked to change the temporary password.
+
 ## Repository safety
 
 Do **not** commit real employee records, controlled SOP documents, database files, passwords, credentials, production exports or backups to this repository. The `.gitignore` is configured to block common local data files and upload folders.
