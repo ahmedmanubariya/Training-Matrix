@@ -3,34 +3,44 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% block title %}Eaststone Training Matrix{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <meta name="theme-color" content="#0b4b3f">
+  <title>{% block title %}Eaststone Controlled Documents & Training{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}?v=20260825-2">
 </head>
 <body>
 {% if me %}
 {% set role = me.permission_role or me.access_role %}
 <header class="topbar">
-  <button class="menu-btn" type="button" onclick="document.body.classList.add('nav-open')" aria-label="Open menu">☰</button>
-  <div class="top-brand">EASTSTONE</div>
+  <button class="menu-btn" type="button" onclick="document.body.classList.add('nav-open')" aria-label="Open navigation"><span></span><span></span><span></span></button>
+  <a class="top-brand" href="{{ url_for('experience.overview') }}">EASTSTONE</a>
   <div class="top-divider"></div>
-  <div class="top-subtitle">Controlled Documents & Training</div>
+  <div class="top-subtitle">Controlled Documents &amp; Training</div>
+  <div class="top-user"><strong>{{ me.employee_name or me.username }}</strong><span>{{ role|upper }}</span></div>
 </header>
 <div class="nav-shade" onclick="document.body.classList.remove('nav-open')"></div>
-<aside class="drawer">
-  <div class="drawer-brand"><div class="brand-mark">E</div><div><strong>Eaststone</strong><span>TRAINING MATRIX</span></div><button class="drawer-close" onclick="document.body.classList.remove('nav-open')">×</button></div>
+<aside class="drawer" aria-label="Main navigation">
+  <div class="drawer-brand">
+    <div class="brand-mark">E</div>
+    <div class="drawer-brand-text"><strong>Eaststone</strong><span>TRAINING MATRIX</span></div>
+    <button class="drawer-close" type="button" onclick="document.body.classList.remove('nav-open')" aria-label="Close navigation">×</button>
+  </div>
   <p class="nav-label">WORKSPACE</p>
   <nav class="drawer-nav">
-    <a href="{{ url_for('experience.overview') }}">▦ <span>Overview</span><b>›</b></a>
-    <a href="{{ url_for('main.my_training') }}">▣ <span>My training</span><b>›</b></a>
-    <a href="{{ url_for('experience.controlled_documents') }}">▤ <span>Controlled documents</span><b>›</b></a>
-    {% if role in ['manager','qa','admin'] %}<a href="{{ url_for('main.dashboard') }}">☑ <span>Training matrix</span><b>›</b></a>{% endif %}
-    {% if role in ['manager','qa','admin'] %}<a href="{{ url_for('main.staff') }}">♙ <span>People & roles</span><b>›</b></a>{% endif %}
-    {% if role in ['qa','admin'] %}<a href="{{ url_for('main.sops') }}">▧ <span>Document control</span><b>›</b></a>{% endif %}
-    {% if role in ['qa','admin'] %}<a href="{{ url_for('main.users') }}">♢ <span>Permissions</span><b>›</b></a>{% endif %}
-    {% if role in ['qa','admin'] %}<a href="{{ url_for('main.audit_view') }}">▱ <span>Audit trail</span><b>›</b></a>{% endif %}
-    {% if role in ['qa','admin'] %}<a href="{{ url_for('system_admin.index') }}">⚙ <span>System</span><b>›</b></a>{% endif %}
+    <a class="{{ 'active' if request.endpoint == 'experience.overview' else '' }}" href="{{ url_for('experience.overview') }}"><i>▦</i><span>Overview</span><b>›</b></a>
+    <a class="{{ 'active' if request.endpoint == 'main.my_training' else '' }}" href="{{ url_for('main.my_training') }}"><i>▣</i><span>My training</span><b>›</b></a>
+    <a class="{{ 'active' if request.endpoint and request.endpoint.startswith('experience.controlled') else '' }}" href="{{ url_for('experience.controlled_documents') }}"><i>▤</i><span>Controlled documents</span><b>›</b></a>
+    {% if role in ['qa','admin'] %}<a class="{{ 'active' if request.endpoint and ('sop' in request.endpoint) else '' }}" href="{{ url_for('main.sops') }}"><i>◫</i><span>Document control</span><b>›</b></a>{% endif %}
+    {% if role in ['manager','qa','admin'] %}<a class="{{ 'active' if request.endpoint == 'main.dashboard' else '' }}" href="{{ url_for('main.dashboard') }}"><i>☑</i><span>Training matrix</span><b>›</b></a>{% endif %}
+    {% if role in ['manager','qa','admin'] %}<a class="{{ 'active' if request.endpoint and 'staff' in request.endpoint else '' }}" href="{{ url_for('main.staff') }}"><i>♙</i><span>People &amp; roles</span><b>›</b></a>{% endif %}
+    {% if role in ['qa','admin'] %}<a class="{{ 'active' if request.endpoint and ('user' in request.endpoint or 'permission' in request.endpoint) else '' }}" href="{{ url_for('main.users') }}"><i>♢</i><span>Permissions</span><b>›</b></a>{% endif %}
+    {% if role in ['qa','admin'] %}<a class="{{ 'active' if request.endpoint == 'main.audit_view' else '' }}" href="{{ url_for('main.audit_view') }}"><i>▱</i><span>Audit trail</span><b>›</b></a>{% endif %}
+    {% if role in ['qa','admin'] %}<a class="{{ 'active' if request.endpoint and request.endpoint.startswith('system_admin.') else '' }}" href="{{ url_for('system_admin.index') }}"><i>⚙</i><span>System</span><b>›</b></a>{% endif %}
   </nav>
-  <div class="drawer-account"><span>{{ me.username }}</span><small>{{ role|upper }}</small><a href="{{ url_for('main.logout') }}">Sign out</a></div>
+  <div class="drawer-account">
+    <div class="avatar">{{ (me.employee_name or me.username)[0]|upper }}</div>
+    <div><strong>{{ me.employee_name or me.username }}</strong><small>{{ role|upper }}</small></div>
+    <a href="{{ url_for('main.logout') }}">Sign out</a>
+  </div>
 </aside>
 {% endif %}
 <main class="page {% if not me %}auth-page{% endif %}">
