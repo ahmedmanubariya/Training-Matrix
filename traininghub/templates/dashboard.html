@@ -1,48 +1,16 @@
 {% extends 'base.html' %}
 {% block content %}
-<section class="page-hero">
-  <div class="eyebrow">Compliance overview</div>
-  <h1>Good {{ 'morning' if now_hour is defined and now_hour < 12 else 'afternoon' }}, {{ me.employee_name or me.username }}</h1>
-  <p>Your controlled-document and training position at a glance.</p>
-</section>
-
+<section class="hero"><div class="eyebrow">Training matrix</div><h1>Department training overview</h1><p>Monitor staff compliance, completed training and actions requiring attention.</p></section>
+{% set below = team|selectattr('percentage','lt',80)|list|length %}
+{% set outstanding_total = team|sum(attribute='outstanding') %}
+{% set trained_total = team|sum(attribute='trained') %}
 <div class="cards">
-  <div class="card metric-card">
-    <div class="metric-icon green">✓</div>
-    <div><div class="metric-label">Average compliance</div><div class="metric-value">{{ average }}%</div></div>
-    <div class="metric-note">Across your visible team</div>
-  </div>
-  <div class="card metric-card">
-    <div class="metric-icon red">!</div>
-    <div><div class="metric-label">Below 80%</div><div class="metric-value">{{ team|selectattr('percentage','lt',80)|list|length }}</div></div>
-    <div class="metric-note">Requires attention</div>
-  </div>
-  <div class="card metric-card">
-    <div class="metric-icon gold">◷</div>
-    <div><div class="metric-label">Outstanding</div><div class="metric-value">{{ team|sum(attribute='outstanding') }}</div></div>
-    <div class="metric-note">Open training assignments</div>
-  </div>
-  <div class="card metric-card">
-    <div class="metric-icon blue">✓</div>
-    <div><div class="metric-label">Completed</div><div class="metric-value">{{ team|sum(attribute='trained') }}</div></div>
-    <div class="metric-note">Current training records</div>
-  </div>
+  <div class="metric-card"><div class="metric-icon">%</div><div><span>Overall compliance</span><strong>{{ average }}%</strong><small>Minimum target 80%</small></div></div>
+  <div class="metric-card red"><div class="metric-icon">△</div><div><span>Below 80%</span><strong>{{ below }}</strong><small>Staff requiring attention</small></div></div>
+  <div class="metric-card yellow"><div class="metric-icon">◷</div><div><span>Outstanding</span><strong>{{ outstanding_total }}</strong><small>Training items to complete</small></div></div>
+  <div class="metric-card blue"><div class="metric-icon">✓</div><div><span>Completed</span><strong>{{ trained_total }}</strong><small>Current completions</small></div></div>
 </div>
-
-<h2 class="section-heading">Team compliance</h2>
-<table>
-<thead><tr><th>Staff member</th><th>Department</th><th>Role</th><th>Compliance</th><th>Trained</th><th>Outstanding</th><th>Alert</th></tr></thead>
-<tbody>
-{% for e in team %}
-<tr>
-  <td><a href="{{ url_for('staff_admin.detail', employee_id=e.id) }}">{{ e.name }}</a></td>
-  <td>{{ e.department }}</td><td>{{ e.job_role or '—' }}</td>
-  <td><div class="progress"><span style="width:{{ e.percentage }}%"></span></div>{{ e.percentage }}%</td>
-  <td>{{ e.trained }}</td><td>{{ e.outstanding }}</td>
-  <td>{% if e.percentage < 80 %}<span class="danger-pill">Below 80%</span>{% else %}<span class="status compliant">Current</span>{% endif %}</td>
-</tr>
-{% else %}
-<tr><td colspan="7">No staff records are currently available.</td></tr>
-{% endfor %}
-</tbody></table>
+<div class="panel"><div class="eyebrow">People & progress</div><h2>Staff compliance</h2><div class="table-wrap"><table><thead><tr><th>Staff member</th><th>Department</th><th>Role</th><th>Compliance</th><th>Read</th><th>Outstanding</th><th>Alert</th></tr></thead><tbody>
+{% for e in team %}<tr><td><a href="{{ url_for('staff_admin.detail', employee_id=e.id) }}">{{ e.name }}</a></td><td>{{ e.department }}</td><td>{{ e.job_role or '—' }}</td><td><div class="progress"><span style="width:{{ e.percentage }}%"></span></div><strong>{{ e.percentage }}%</strong></td><td>{{ e.trained }}</td><td>{{ e.outstanding }}</td><td>{% if e.percentage < 80 %}<span class="danger-pill">Email alert</span>{% else %}<span class="status compliant">Compliant</span>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div></div>
 {% endblock %}
