@@ -1,6 +1,5 @@
 import hashlib
 import mimetypes
-import os
 import re
 import shutil
 import uuid
@@ -19,52 +18,112 @@ REV_PATTERNS = [
 
 def _hash(path):
     h = hashlib.sha256()
-    with path.open('rb') as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b''):
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _natural_revision_key(value):
+    """Sort common revisions naturally: 001 < 002 < 010 and A1 < A2."""
+    parts = re.split(r'(\d+)', str(value or ''))
+    return tuple(int(p) if p.isdigit() else p.lower() for p in parts)
 
 
 def parse_filename(path):
     stem = path.stem.strip()
     for pattern in REV_PATTERNS:
-        m = pattern.match(stem)
-        if m:
-            return m.group('ref').strip(' _-'), m.group('rev').strip()
-    # Fallback: the complete filename becomes the reference and revision is based on mtime.
+        match = pattern.match(stem)
+        if match:
+            return match.group('ref').strip(' _-'), match.group('rev').strip()
+    # If a filename does not contain an explicit revision, its modified time is used
+    # as the revision ordering fallback. QA can still correct metadata in Document Control.
     return stem, str(int(path.stat().st_mtime))
 
 
+def _latest_candidates(root):
+    """Return one latest file per parsed document reference.
+
+    Approved folders often retain old revisions. We therefore group files by reference and
+    choose the highest natural revision; modified time breaks ties. This prevents an older
+    retained file from superseding the current revision on the next scan.
+    """
+    grouped = {}
+    scanned = 0
+    for path in sorted(p for p in root.rglob('*') if p.is_file() and p.suffix.lower() in SUPPORTED):
+        scanned += 1
+        reference, revision = parse_filename(path)
+        candidate = (path, revision)
+        existing = grouped.get(reference)
+        if existing is None:
+            grouped[reference] = candidate
+            continue
+        old_path, old_revision = existing
+        new_key = (_natural_revision_key(revision), path.stat().st_mtime)
+        old_key = (_natural_revision_key(old_revision), old_path.stat().st_mtime)
+        if new_key > old_key:
+            grouped[reference] = candidate
+    return scanned, grouped
+
+
+def _audit(db, actor_user_id, action, entity_type, entity_id, details):
+    db.execute(
+        '''INSERT INTO audit_log(user_id,action,entity_type,entity_id,details,ip_address)
+           VALUES(?,?,?,?,?,NULL)''',
+        (actor_user_id, action, entity_type, entity_id, details),
+    )
+
+
 def sync_approved_folder(root=None, actor_user_id=None):
-    root = Path(root or current_app.config.get('APPROVED_DOCS_ROOT') or '')
-    if not str(root) or not root.exists() or not root.is_dir():
-        return {'configured': False, 'scanned': 0, 'created': 0, 'updated': 0, 'unchanged': 0, 'errors': []}
+    configured_root = root or current_app.config.get('APPROVED_DOCS_ROOT') or ''
+    if not configured_root:
+        return {'configured': False, 'scanned': 0, 'created': 0, 'updated': 0,
+                'unchanged': 0, 'ignored_old_revisions': 0, 'errors': []}
+
+    root = Path(configured_root)
+    if not root.exists() or not root.is_dir():
+        return {'configured': False, 'root': str(root), 'scanned': 0, 'created': 0,
+                'updated': 0, 'unchanged': 0, 'ignored_old_revisions': 0, 'errors': []}
 
     db = get_db()
     upload_dir = Path(current_app.instance_path) / current_app.config['UPLOAD_FOLDER']
     upload_dir.mkdir(parents=True, exist_ok=True)
-    result = {'configured': True, 'root': str(root), 'scanned': 0, 'created': 0, 'updated': 0, 'unchanged': 0, 'errors': []}
 
-    for path in sorted(p for p in root.rglob('*') if p.is_file() and p.suffix.lower() in SUPPORTED):
-        result['scanned'] += 1
+    scanned, candidates = _latest_candidates(root)
+    result = {
+        'configured': True,
+        'root': str(root),
+        'scanned': scanned,
+        'selected_current_files': len(candidates),
+        'ignored_old_revisions': max(0, scanned - len(candidates)),
+        'created': 0,
+        'updated': 0,
+        'unchanged': 0,
+        'errors': [],
+    }
+
+    for reference, (path, revision) in sorted(candidates.items()):
         try:
-            reference, revision = parse_filename(path)
             digest = _hash(path)
             stat = path.stat()
-            source = db.execute('SELECT * FROM document_sources WHERE source_path=?', (str(path),)).fetchone()
-            if source and source['source_hash'] == digest:
-                db.execute('UPDATE document_sources SET last_seen_at=CURRENT_TIMESTAMP WHERE id=?', (source['id'],))
+            sop = db.execute(
+                'SELECT * FROM sops WHERE reference=? ORDER BY active DESC,id LIMIT 1',
+                (reference,),
+            ).fetchone()
+            source = db.execute(
+                'SELECT * FROM document_sources WHERE sop_id=?', (sop['id'],)
+            ).fetchone() if sop else None
+
+            if source and source['source_hash'] == digest and sop['current_revision'] == revision:
+                db.execute(
+                    '''UPDATE document_sources SET source_path=?,source_mtime=?,source_size=?,
+                       last_seen_at=CURRENT_TIMESTAMP WHERE id=?''',
+                    (str(path), stat.st_mtime, stat.st_size, source['id']),
+                )
                 result['unchanged'] += 1
                 continue
 
-            sop = None
-            if source:
-                sop = db.execute('SELECT * FROM sops WHERE id=?', (source['sop_id'],)).fetchone()
-            if not sop:
-                sop = db.execute('SELECT * FROM sops WHERE reference=? AND active=1 ORDER BY id LIMIT 1', (reference,)).fetchone()
-
-            is_new = sop is None
-            if is_new:
+            if sop is None:
                 cur = db.execute(
                     '''INSERT INTO sops(reference,title,category,sop_type,current_revision,active)
                        VALUES(?,?,?,'Controlled Document',?,1)''',
@@ -72,19 +131,31 @@ def sync_approved_folder(root=None, actor_user_id=None):
                 )
                 sop_id = cur.lastrowid
                 result['created'] += 1
+                action = 'SYNC_CREATE_CONTROLLED_DOCUMENT'
             else:
                 sop_id = sop['id']
                 result['updated'] += 1
+                action = 'SYNC_NEW_APPROVED_REVISION'
 
             stored = f'{uuid.uuid4().hex}{path.suffix.lower()}'
             shutil.copy2(path, upload_dir / stored)
-            db.execute("UPDATE sop_versions SET status='SUPERSEDED' WHERE sop_id=? AND status='ACTIVE'", (sop_id,))
+
             db.execute(
-                '''INSERT INTO sop_versions(sop_id,revision,original_name,stored_name,content_type,file_size,status,uploaded_by)
-                   VALUES(?,?,?,?,?,?, 'ACTIVE', ?)''',
-                (sop_id, revision, path.name, stored, mimetypes.guess_type(path.name)[0], stat.st_size, actor_user_id),
+                "UPDATE sop_versions SET status='SUPERSEDED' WHERE sop_id=? AND status='ACTIVE'",
+                (sop_id,),
             )
-            db.execute('UPDATE sops SET current_revision=?,updated_at=CURRENT_TIMESTAMP,active=1 WHERE id=?', (revision, sop_id))
+            db.execute(
+                '''INSERT INTO sop_versions(sop_id,revision,original_name,stored_name,content_type,
+                           file_size,status,uploaded_by)
+                   VALUES(?,?,?,?,?,?, 'ACTIVE', ?)''',
+                (sop_id, revision, path.name, stored, mimetypes.guess_type(path.name)[0],
+                 stat.st_size, actor_user_id),
+            )
+            db.execute(
+                '''UPDATE sops SET current_revision=?,updated_at=CURRENT_TIMESTAMP,active=1
+                   WHERE id=?''',
+                (revision, sop_id),
+            )
             db.execute(
                 '''INSERT INTO document_sources(sop_id,source_path,source_mtime,source_size,source_hash,last_seen_at)
                    VALUES(?,?,?,?,?,CURRENT_TIMESTAMP)
@@ -93,15 +164,26 @@ def sync_approved_folder(root=None, actor_user_id=None):
                      source_hash=excluded.source_hash,last_seen_at=CURRENT_TIMESTAMP''',
                 (sop_id, str(path), stat.st_mtime, stat.st_size, digest),
             )
-            # Any approved revision change requires retraining for active assignees.
-            for row in db.execute('SELECT employee_id FROM employee_assignments WHERE sop_id=? AND active=1', (sop_id,)).fetchall():
+
+            # A newly effective approved revision requires retraining for all current assignees.
+            assignees = db.execute(
+                'SELECT employee_id FROM employee_assignments WHERE sop_id=? AND active=1',
+                (sop_id,),
+            ).fetchall()
+            for row in assignees:
                 db.execute(
                     '''INSERT INTO training_records(employee_id,sop_id,status)
                        VALUES(?,?,'OUTSTANDING')
                        ON CONFLICT(employee_id,sop_id) DO UPDATE SET status='OUTSTANDING',
-                         completion_date=NULL,expiry_date=NULL,revision_completed=NULL,updated_at=CURRENT_TIMESTAMP''',
+                         completion_date=NULL,expiry_date=NULL,revision_completed=NULL,
+                         updated_at=CURRENT_TIMESTAMP''',
                     (row['employee_id'], sop_id),
                 )
+
+            _audit(
+                db, actor_user_id, action, 'sop', sop_id,
+                f'reference={reference}; revision={revision}; source={path}; assignees_reset={len(assignees)}',
+            )
         except Exception as exc:
             result['errors'].append({'file': str(path), 'error': str(exc)})
 
