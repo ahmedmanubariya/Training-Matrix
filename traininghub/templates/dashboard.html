@@ -1,19 +1,48 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="title-row">
-  <div><h1>Training dashboard</h1><p class="muted">Department and staff compliance</p></div>
-  <div class="pie-row"><div class="pie" style="--pct:{{ average }}"></div><div><strong class="big">{{ average }}%</strong><div>Average compliance</div></div></div>
+<section class="page-hero">
+  <div class="eyebrow">Compliance overview</div>
+  <h1>Good {{ 'morning' if now_hour is defined and now_hour < 12 else 'afternoon' }}, {{ me.employee_name or me.username }}</h1>
+  <p>Your controlled-document and training position at a glance.</p>
+</section>
+
+<div class="cards">
+  <div class="card metric-card">
+    <div class="metric-icon green">✓</div>
+    <div><div class="metric-label">Average compliance</div><div class="metric-value">{{ average }}%</div></div>
+    <div class="metric-note">Across your visible team</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-icon red">!</div>
+    <div><div class="metric-label">Below 80%</div><div class="metric-value">{{ team|selectattr('percentage','lt',80)|list|length }}</div></div>
+    <div class="metric-note">Requires attention</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-icon gold">◷</div>
+    <div><div class="metric-label">Outstanding</div><div class="metric-value">{{ team|sum(attribute='outstanding') }}</div></div>
+    <div class="metric-note">Open training assignments</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-icon blue">✓</div>
+    <div><div class="metric-label">Completed</div><div class="metric-value">{{ team|sum(attribute='trained') }}</div></div>
+    <div class="metric-note">Current training records</div>
+  </div>
 </div>
+
+<h2 class="section-heading">Team compliance</h2>
 <table>
 <thead><tr><th>Staff member</th><th>Department</th><th>Role</th><th>Compliance</th><th>Trained</th><th>Outstanding</th><th>Alert</th></tr></thead>
 <tbody>
 {% for e in team %}
 <tr>
-  <td><a href="{{ url_for('staff_admin.detail', employee_id=e.id) }}">{{ e.name }}</a></td><td>{{ e.department }}</td><td>{{ e.job_role or '—' }}</td>
+  <td><a href="{{ url_for('staff_admin.detail', employee_id=e.id) }}">{{ e.name }}</a></td>
+  <td>{{ e.department }}</td><td>{{ e.job_role or '—' }}</td>
   <td><div class="progress"><span style="width:{{ e.percentage }}%"></span></div>{{ e.percentage }}%</td>
   <td>{{ e.trained }}</td><td>{{ e.outstanding }}</td>
-  <td>{% if e.percentage < 80 %}<span class="danger-pill">Below 80%</span>{% else %}—{% endif %}</td>
+  <td>{% if e.percentage < 80 %}<span class="danger-pill">Below 80%</span>{% else %}<span class="status compliant">Current</span>{% endif %}</td>
 </tr>
+{% else %}
+<tr><td colspan="7">No staff records are currently available.</td></tr>
 {% endfor %}
 </tbody></table>
 {% endblock %}
