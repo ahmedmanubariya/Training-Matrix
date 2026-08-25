@@ -3,65 +3,42 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#0d4b3f">
-  <title>{% block title %}TrainingHub{% endblock %}</title>
+  <title>{% block title %}Eaststone Training Matrix{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
 <body>
 {% if me %}
-<div class="app-shell">
-  <header class="topbar">
-    <button class="menu-button" type="button" aria-label="Open navigation" onclick="openDrawer()">
-      <span></span><span></span><span></span>
-    </button>
-    <a class="topbar-brand" href="{{ url_for('main.my_training') if me.access_role == 'staff' else url_for('main.dashboard') }}">
-      <span class="brand-mark">T</span>
-      <span class="brand-name">TRAININGHUB</span>
-    </a>
-    <span class="brand-divider"></span>
-    <span class="brand-subtitle">Controlled Documents &amp; Training</span>
-  </header>
-
-  <div id="drawerBackdrop" class="drawer-backdrop" onclick="closeDrawer()"></div>
-  <aside id="appDrawer" class="drawer" aria-label="Main navigation">
-    <div class="drawer-brand-row">
-      <div class="drawer-brand">
-        <span class="brand-mark large">T</span>
-        <div><strong>TrainingHub</strong><small>TRAINING MATRIX</small></div>
-      </div>
-      <button type="button" class="drawer-close" aria-label="Close navigation" onclick="closeDrawer()">×</button>
-    </div>
-    <div class="drawer-section-title">WORKSPACE</div>
-    <nav class="drawer-nav">
-      {% if me.access_role == 'staff' %}
-        <a href="{{ url_for('main.my_training') }}"><span class="nav-icon">▣</span><span>My training</span><span class="nav-arrow">›</span></a>
-      {% else %}
-        <a href="{{ url_for('main.dashboard') }}"><span class="nav-icon">▦</span><span>Overview</span><span class="nav-arrow">›</span></a>
-        <a href="{{ url_for('main.sops') }}"><span class="nav-icon">▱</span><span>Document control</span><span class="nav-arrow">›</span></a>
-        <a href="{{ url_for('main.staff') }}"><span class="nav-icon">◉</span><span>People &amp; roles</span><span class="nav-arrow">›</span></a>
-        <a href="{{ url_for('main.users') }}"><span class="nav-icon">◇</span><span>Permissions</span><span class="nav-arrow">›</span></a>
-        <a href="{{ url_for('alerts.index') }}"><span class="nav-icon">!</span><span>Compliance alerts</span><span class="nav-arrow">›</span></a>
-        {% if me.access_role == 'admin' %}<a href="{{ url_for('main.audit_view') }}"><span class="nav-icon">□</span><span>Audit trail</span><span class="nav-arrow">›</span></a>{% endif %}
-      {% endif %}
-    </nav>
-    <div class="drawer-account">
-      <div><strong>{{ me.username }}</strong><small>{{ me.access_role|title }}</small></div>
-      <a href="{{ url_for('main.logout') }}">Sign out</a>
-    </div>
-  </aside>
+{% set role = me.permission_role or me.access_role %}
+<header class="topbar">
+  <button class="menu-btn" type="button" onclick="document.body.classList.add('nav-open')" aria-label="Open menu">☰</button>
+  <div class="top-brand">EASTSTONE</div>
+  <div class="top-divider"></div>
+  <div class="top-subtitle">Controlled Documents & Training</div>
+</header>
+<div class="nav-shade" onclick="document.body.classList.remove('nav-open')"></div>
+<aside class="drawer">
+  <div class="drawer-brand"><div class="brand-mark">E</div><div><strong>Eaststone</strong><span>TRAINING MATRIX</span></div><button class="drawer-close" onclick="document.body.classList.remove('nav-open')">×</button></div>
+  <p class="nav-label">WORKSPACE</p>
+  <nav class="drawer-nav">
+    <a href="{{ url_for('experience.overview') }}">▦ <span>Overview</span><b>›</b></a>
+    <a href="{{ url_for('main.my_training') }}">▣ <span>My training</span><b>›</b></a>
+    <a href="{{ url_for('experience.controlled_documents') }}">▤ <span>Controlled documents</span><b>›</b></a>
+    {% if role in ['manager','qa','admin'] %}<a href="{{ url_for('main.dashboard') }}">☑ <span>Training matrix</span><b>›</b></a>{% endif %}
+    {% if role in ['manager','qa','admin'] %}<a href="{{ url_for('main.staff') }}">♙ <span>People & roles</span><b>›</b></a>{% endif %}
+    {% if role in ['qa','admin'] %}<a href="{{ url_for('main.sops') }}">▧ <span>Document control</span><b>›</b></a>{% endif %}
+    {% if role in ['qa','admin'] %}<a href="{{ url_for('main.users') }}">♢ <span>Permissions</span><b>›</b></a>{% endif %}
+    {% if role in ['qa','admin'] %}<a href="{{ url_for('main.audit_view') }}">▱ <span>Audit trail</span><b>›</b></a>{% endif %}
+    {% if role in ['qa','admin'] %}<a href="{{ url_for('system_admin.index') }}">⚙ <span>System</span><b>›</b></a>{% endif %}
+  </nav>
+  <div class="drawer-account"><span>{{ me.username }}</span><small>{{ role|upper }}</small><a href="{{ url_for('main.logout') }}">Sign out</a></div>
+</aside>
 {% endif %}
-
-<main class="{% if not me %}auth-page{% endif %}">
-  {% with messages = get_flashed_messages() %}
-    {% if messages %}<div class="flash">{{ messages[0] }}</div>{% endif %}
-  {% endwith %}
+<main class="page {% if not me %}auth-page{% endif %}">
+  {% with messages = get_flashed_messages() %}{% if messages %}<div class="flash">{{ messages[0] }}</div>{% endif %}{% endwith %}
   {% block content %}{% endblock %}
 </main>
-{% if me %}</div>{% endif %}
 <script>
-function openDrawer(){document.getElementById('appDrawer')?.classList.add('open');document.getElementById('drawerBackdrop')?.classList.add('open');document.body.classList.add('drawer-open')}
-function closeDrawer(){document.getElementById('appDrawer')?.classList.remove('open');document.getElementById('drawerBackdrop')?.classList.remove('open');document.body.classList.remove('drawer-open')}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.body.classList.remove('nav-open')});
 </script>
 </body>
 </html>
