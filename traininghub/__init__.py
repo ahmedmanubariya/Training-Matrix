@@ -22,6 +22,7 @@ def create_app(test_config=None):
         UPLOAD_FOLDER=os.environ.get('UPLOAD_FOLDER', 'uploads'),
         ALERT_THRESHOLD=int(os.environ.get('ALERT_THRESHOLD', '80')),
         APPROVED_DOCS_ROOT=os.environ.get('APPROVED_DOCS_ROOT', ''),
+        APPROVED_DOCS_SYNC_SECONDS=int(os.environ.get('APPROVED_DOCS_SYNC_SECONDS', '300')),
     )
     if test_config:
         app.config.update(test_config)
