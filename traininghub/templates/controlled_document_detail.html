@@ -6,30 +6,48 @@
   <h1>{{ sop.reference }} — {{ sop.title }}</h1>
   <p>Revision {{ version.revision if version else sop.current_revision or '—' }} · {{ sop.category or 'Controlled document' }}</p>
 </section>
+
 {% if version %}
-<div class="panel">
-  <div class="title-row"><div><h2 style="margin:0">{{ version.original_name }}</h2><p class="muted">Open the controlled file and read the current approved revision before acknowledging training.</p></div><a class="button" target="_blank" href="{{ url_for('experience.document_material', version_id=version.id) }}">Open PDF / document</a></div>
-</div>
-{% else %}<div class="warning">No active approved file is currently registered for this document.</div>{% endif %}
-{% if assigned and version %}
-<div class="panel">
-  <div class="eyebrow">Read & understood</div>
-  <h2>Electronic acknowledgement</h2>
-  <p class="lead" style="font-size:17px">{{ acknowledgement }}</p>
-  <form method="post" action="{{ url_for('experience.acknowledge', sop_id=sop.id) }}" class="stack" style="max-width:700px">
-    <input type="hidden" name="version_id" value="{{ version.id }}">
-    <label>Electronic signature — type your full name<input name="signed_name" placeholder="{{ me.employee_name }}" required></label>
-    <label>Confirm your password<input type="password" name="password" required></label>
-    <button class="wide-button">✓ Read & Understood</button>
-  </form>
-</div>
-{% elif not assigned %}
-<div class="panel"><p class="muted">This document is available for reference. It is not currently assigned to you as mandatory training, so no training acknowledgement is required.</p></div>
+<section class="doc-viewer-shell">
+  <div class="doc-viewer-head">
+    <div>
+      <div class="eyebrow" style="margin-bottom:7px">Controlled file</div>
+      <h2 style="margin:0 0 6px">{{ version.original_name }}</h2>
+      <p class="muted" style="margin:0">Open and read the current approved revision before recording training.</p>
+    </div>
+    <a class="button" target="_blank" href="{{ url_for('experience.document_material', version_id=version.id) }}">Open PDF / document</a>
+  </div>
+  <div style="padding:24px">
+    {% if assigned %}
+    <div class="ack-box">
+      <div class="eyebrow">Read &amp; understood</div>
+      <h2>Electronic training acknowledgement</h2>
+      <p class="lead" style="font-size:17px">{{ acknowledgement }}</p>
+      <p class="muted">Your acknowledgement creates a version-specific training record containing your identity, signature name, document revision, date, timestamp and audit-trail event.</p>
+      <form method="post" action="{{ url_for('experience.acknowledge', sop_id=sop.id) }}" class="stack" style="max-width:760px;margin-top:20px">
+        <input type="hidden" name="version_id" value="{{ version.id }}">
+        <label>Electronic signature — type your full name<input name="signed_name" placeholder="{{ me.employee_name }}" required></label>
+        <label>Confirm your password<input type="password" name="password" required autocomplete="current-password"></label>
+        <button class="wide-button">✓ Read &amp; Understood</button>
+      </form>
+    </div>
+    {% else %}
+    <div class="panel" style="margin:0"><p class="muted" style="margin:0">This document is available for reference but is not currently assigned to you as mandatory training. No acknowledgement is required.</p></div>
+    {% endif %}
+  </div>
+</section>
+{% else %}
+<div class="warning">No active approved file is currently registered for this document.</div>
 {% endif %}
+
 {% if signatures %}
-<div class="panel"><div class="eyebrow">My evidence history</div><h2>Read & Understood record</h2>
-<div class="table-wrap"><table><thead><tr><th>Date/time</th><th>Revision</th><th>Electronic signature</th><th>Document</th></tr></thead><tbody>
-{% for s in signatures %}<tr><td>{{ s.signed_at }}</td><td>{{ s.revision }}</td><td class="signature-record">{{ s.signed_name }}</td><td>{{ s.original_name }}</td></tr>{% endfor %}
-</tbody></table></div></div>
+<section class="panel">
+  <div class="eyebrow">Evidence history</div>
+  <h2>Read &amp; Understood record</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date &amp; time</th><th>Revision</th><th>Electronic signature</th><th>Controlled document</th></tr></thead>
+    <tbody>{% for s in signatures %}<tr><td>{{ s.signed_at }}</td><td>{{ s.revision }}</td><td class="signature-record">{{ s.signed_name }}</td><td>{{ s.original_name }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
 {% endif %}
 {% endblock %}
