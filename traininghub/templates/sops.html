@@ -1,11 +1,14 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="title-row">
-  <div><h1>SOP library</h1><p class="muted">Create, revise and retire controlled training documents.</p></div>
-</div>
-<div class="panel">
-  <h2>Add SOP / training item</h2>
-  <form method="post" class="form-grid">
+<section class="page-hero">
+  <div class="eyebrow">Quality document control</div>
+  <h1>Document control</h1>
+  <p>Register controlled training documents, manage immutable revisions and release effective versions.</p>
+</section>
+
+<details class="panel" {% if not sops %}open{% endif %}>
+  <summary>+ New document</summary>
+  <form method="post" class="form-grid" style="margin-top:18px">
     <label>Reference<input name="reference" required placeholder="PGS.QM.001"></label>
     <label>Title<input name="title" required></label>
     <label>Initial revision<input name="revision" placeholder="001"></label>
@@ -13,11 +16,26 @@
     <label>Type<input name="sop_type" placeholder="SOP / Policy / Work Instruction"></label>
     <label>Owner<input name="owner"></label>
     <label>Validity months<input type="number" min="1" name="validity_months"></label>
-    <button>Create SOP</button>
+    <button>Create document</button>
   </form>
+</details>
+
+<div class="search-panel panel">
+  <div class="search-box"><span aria-hidden="true">⌕</span><input id="documentSearch" type="search" placeholder="Find a document" oninput="filterDocuments()"></div>
 </div>
+
 <div class="tabs"><a href="{{ url_for('main.sops', show='active') }}">Active</a><a href="{{ url_for('main.sops', show='retired') }}">Retired</a></div>
-<table><thead><tr><th>Reference</th><th>Title</th><th>Revision</th><th>Category</th><th>Roles</th><th>Versions</th></tr></thead><tbody>
+
+{% if sops %}
+<table id="documentTable"><thead><tr><th>Reference</th><th>Title</th><th>Revision</th><th>Category</th><th>Roles</th><th>Versions</th></tr></thead><tbody>
 {% for s in sops %}<tr><td><a href="{{ url_for('main.sop_detail', sop_id=s.id) }}">{{ s.reference }}</a></td><td>{{ s.title }}</td><td>{{ s.current_revision or '—' }}</td><td>{{ s.category or '—' }}</td><td>{{ s.role_count }}</td><td>{{ s.version_count }}</td></tr>{% endfor %}
 </tbody></table>
+{% else %}
+<div class="panel empty-state">
+  <div><div class="empty-icon">▱</div><h3>Select a document</h3><p class="muted">Create a master-list record to begin its controlled history.</p></div>
+</div>
+{% endif %}
+<script>
+function filterDocuments(){const q=(document.getElementById('documentSearch')?.value||'').toLowerCase();document.querySelectorAll('#documentTable tbody tr').forEach(r=>{r.style.display=r.innerText.toLowerCase().includes(q)?'':'none'})}
+</script>
 {% endblock %}
