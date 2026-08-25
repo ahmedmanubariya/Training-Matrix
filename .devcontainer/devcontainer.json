@@ -1,17 +1,27 @@
 {
-  "name": "TrainingHub Development",
+  "name": "TrainingHub Full Stack Development",
   "build": {
     "dockerfile": "../Dockerfile",
     "context": ".."
   },
-  "forwardPorts": [5000],
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    }
+  },
+  "forwardPorts": [5000, 5173],
   "portsAttributes": {
     "5000": {
-      "label": "TrainingHub",
+      "label": "TrainingHub Python API",
+      "onAutoForward": "silent"
+    },
+    "5173": {
+      "label": "TrainingHub React UI",
       "onAutoForward": "openBrowser"
     }
   },
-  "postStartCommand": "gunicorn --bind 0.0.0.0:5000 --workers 1 app:app",
+  "postCreateCommand": "cd frontend && npm install",
+  "postStartCommand": "bash -lc 'gunicorn --bind 0.0.0.0:5000 --workers 1 app:app >/tmp/traininghub-api.log 2>&1 & cd frontend && npm run dev -- --host 0.0.0.0 >/tmp/traininghub-vite.log 2>&1 &'",
   "remoteEnv": {
     "SECRET_KEY": "codespace-development-secret",
     "BOOTSTRAP_ADMIN_PASSWORD": "ChangeMeNow!2026"
