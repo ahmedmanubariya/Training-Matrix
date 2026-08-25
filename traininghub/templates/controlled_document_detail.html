@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<a href="{{ url_for('experience.controlled_documents') }}" style="text-decoration:none;color:var(--green);font-weight:800">← Controlled documents</a>
+<section class="hero" style="margin-top:24px">
+  <div class="eyebrow">Current approved procedure</div>
+  <h1>{{ sop.reference }} — {{ sop.title }}</h1>
+  <p>Revision {{ version.revision if version else sop.current_revision or '—' }} · {{ sop.category or 'Controlled document' }}</p>
+</section>
+{% if version %}
+<div class="panel">
+  <div class="title-row"><div><h2 style="margin:0">{{ version.original_name }}</h2><p class="muted">Open the controlled file and read the current approved revision before acknowledging training.</p></div><a class="button" target="_blank" href="{{ url_for('experience.document_material', version_id=version.id) }}">Open PDF / document</a></div>
+</div>
+{% else %}<div class="warning">No active approved file is currently registered for this document.</div>{% endif %}
+{% if assigned and version %}
+<div class="panel">
+  <div class="eyebrow">Read & understood</div>
+  <h2>Electronic acknowledgement</h2>
+  <p class="lead" style="font-size:17px">{{ acknowledgement }}</p>
+  <form method="post" action="{{ url_for('experience.acknowledge', sop_id=sop.id) }}" class="stack" style="max-width:700px">
+    <input type="hidden" name="version_id" value="{{ version.id }}">
+    <label>Electronic signature — type your full name<input name="signed_name" placeholder="{{ me.employee_name }}" required></label>
+    <label>Confirm your password<input type="password" name="password" required></label>
+    <button class="wide-button">✓ Read & Understood</button>
+  </form>
+</div>
+{% elif not assigned %}
+<div class="panel"><p class="muted">This document is available for reference. It is not currently assigned to you as mandatory training, so no training acknowledgement is required.</p></div>
+{% endif %}
+{% if signatures %}
+<div class="panel"><div class="eyebrow">My evidence history</div><h2>Read & Understood record</h2>
+<div class="table-wrap"><table><thead><tr><th>Date/time</th><th>Revision</th><th>Electronic signature</th><th>Document</th></tr></thead><tbody>
+{% for s in signatures %}<tr><td>{{ s.signed_at }}</td><td>{{ s.revision }}</td><td class="signature-record">{{ s.signed_name }}</td><td>{{ s.original_name }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endif %}
+{% endblock %}
