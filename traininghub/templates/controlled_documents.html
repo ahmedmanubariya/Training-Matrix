@@ -5,18 +5,28 @@
   <h1>Controlled documents</h1>
   <p>Search the current approved procedures available to your account.</p>
 </section>
-<div class="panel">
-  <form method="get" class="search-box"><span>⌕</span><input name="q" value="{{ q }}" placeholder="Find a document by reference or title"></form>
-</div>
+
+<section class="panel">
+  <form method="get" class="search-box">
+    <span>⌕</span>
+    <input name="q" value="{{ q }}" placeholder="Find a document by reference or title" autocomplete="off">
+  </form>
+</section>
+
 <div class="document-list">
 {% for r in rows %}
-  <div class="document-row">
+  <article class="document-row">
     <div class="doc-ref">{{ r.reference }}</div>
-    <div><div class="doc-title">{{ r.title }}</div><div class="doc-meta">Revision {{ r.version_revision or r.current_revision or '—' }} · {{ r.category or 'Controlled document' }} · <span class="status {{ (r.status or '')|lower }}">{{ r.status or 'REFERENCE' }}</span></div></div>
-    <a class="button" href="{{ url_for('experience.document', sop_id=r.sop_id) }}">Open document</a>
-  </div>
+    <div>
+      <div class="doc-title">{{ r.title }}</div>
+      <div class="doc-meta">Current revision {{ r.version_revision or r.current_revision or '—' }} · {{ r.category or 'Controlled document' }}{% if r.status %} · <span class="status {{ r.status|lower }}">{{ r.status|replace('_',' ') }}</span>{% endif %}</div>
+    </div>
+    <a class="button" href="{{ url_for('experience.document', sop_id=r.sop_id) }}">Open procedure</a>
+  </article>
 {% else %}
-  <div class="panel empty-state"><div><strong>No documents found</strong><span>There are no controlled documents matching your search or assignments.</span></div></div>
+  <section class="panel empty-state">
+    <div><div class="empty-icon">▱</div><strong>No documents found</strong><span>There are no controlled documents matching your search or current training assignments.</span></div>
+  </section>
 {% endfor %}
 </div>
 {% endblock %}
