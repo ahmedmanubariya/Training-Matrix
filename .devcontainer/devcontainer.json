@@ -21,9 +21,10 @@
     }
   },
   "postCreateCommand": "cd frontend && npm install",
-  "postStartCommand": "bash -lc 'gunicorn --bind 0.0.0.0:5000 --workers 1 app:app >/tmp/traininghub-api.log 2>&1 & cd frontend && npm run dev -- --host 0.0.0.0 >/tmp/traininghub-vite.log 2>&1 &'",
+  "postStartCommand": "bash scripts/start-codespace.sh",
   "remoteEnv": {
     "SECRET_KEY": "codespace-development-secret",
-    "BOOTSTRAP_ADMIN_PASSWORD": "ChangeMeNow!2026"
+    "BOOTSTRAP_ADMIN_PASSWORD": "ChangeMeNow!2026",
+    "DEV_SEED_EASTSTONE_EXAMPLES": "1"
   }
 }
