@@ -5,7 +5,7 @@ from flask import Flask
 from .account_admin import bp as account_admin_bp
 from .alerts import bp as alerts_bp
 from .api import bp as api_bp
-from .bootstrap import ensure_admin
+from .bootstrap import ensure_admin, ensure_development_catalog
 from .db import init_app
 from .experience import bp as experience_bp
 from .hooks import bp as hooks_bp
@@ -31,6 +31,7 @@ def create_app(test_config=None):
     init_app(app)
     with app.app_context():
         ensure_admin()
+        ensure_development_catalog()
     app.register_blueprint(bp)
     app.register_blueprint(experience_bp)
     app.register_blueprint(api_bp)
